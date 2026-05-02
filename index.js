@@ -1,12 +1,18 @@
-import express from "express";
+import { createApp } from "./src/app.js";
+import { env } from "./src/config/env.js";
+import { logger } from "./src/lib/logger.js";
 
-const app = express();
-app.use(express.json());
+const app = createApp();
 
-app.get("/", (req, res) => {
-  res.send("AI Brain Running 🚀");
+const server = app.listen(env.port, () => {
+  logger.info("server_started", { port: env.port, env: env.nodeEnv });
 });
 
-app.listen(3000, () => {
-  console.log("Server running");
-});
+const shutdown = (signal) => {
+  logger.info("shutdown", { signal });
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(1), 10_000).unref();
+};
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT",  () => shutdown("SIGINT"));
