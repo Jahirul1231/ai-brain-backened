@@ -19,7 +19,7 @@ export const env = {
   },
 
   claude: {
-    apiKey: required("ANTHROPIC_API_KEY", { allowEmptyInDev: true }),
+    apiKey: process.env.ANTHROPIC_API_KEY || "",
     model: process.env.CLAUDE_MODEL || "claude-sonnet-4-6",
   },
 };
