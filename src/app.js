@@ -14,13 +14,16 @@ import { financeRouter } from "./routes/finance.js";
 import { intelRouter } from "./routes/intel.js";
 import { systemRouter } from "./routes/system.js";
 import { notificationsRouter } from "./routes/notifications.js";
+import { clientRouter } from "./routes/client.js";
 import { authLimiter, chatLimiter, apiLimiter } from "./middleware/rateLimiter.js";
 import { logger } from "./lib/logger.js";
 
 const ALLOWED_ORIGINS = [
   "https://reportude.vercel.app",
   "https://ai-brain-dashboard-brown.vercel.app",
+  "https://reportude-client.vercel.app",
   "http://localhost:3000",
+  "http://localhost:3001",
 ];
 
 export const createApp = () => {
@@ -130,6 +133,7 @@ export const createApp = () => {
   app.use(intelRouter);
   app.use(systemRouter);
   app.use(notificationsRouter);
+  app.use(clientRouter);
 
   app.use(notFound);
   app.use(errorHandler);

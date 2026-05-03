@@ -20,11 +20,12 @@ export const register = async ({ name, email, password }) => {
 
   const userId = authData.user.id;
   const slug = name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+  const businessSlug = slug;
 
   // 2. Create tenant
   const { data: tenant, error: tenantErr } = await supabase
     .from("tenants")
-    .insert({ name, slug })
+    .insert({ name, slug, business_slug: businessSlug })
     .select()
     .single();
   if (tenantErr) throw tenantErr;
@@ -40,6 +41,13 @@ export const register = async ({ name, email, password }) => {
     .from("token_balances")
     .insert({ tenant_id: tenant.id, balance: FREE_PLAN_TOKENS });
   if (tokenErr) throw tokenErr;
+
+  // 5. Create onboarding_progress record (non-blocking)
+  supabase
+    .from("onboarding_progress")
+    .insert({ tenant_id: tenant.id, step: 1, business_name: name })
+    .then(() => null)
+    .catch(() => null);
 
   return { userId, tenantId: tenant.id, email };
 };
