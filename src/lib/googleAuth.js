@@ -4,10 +4,12 @@ import { env } from "../config/env.js";
 export const createServiceAccountClient = () => {
   const { serviceAccountEmail: email, serviceAccountKey: key } = env.google;
   if (!email || !key) throw new Error("Service account not configured");
+  // Normalise key — Railway may store \n as literal two chars or as actual newlines
+  const privateKey = key.includes("\\n") ? key.replace(/\\n/g, "\n") : key;
   return new google.auth.JWT(
     email,
     null,
-    key.replace(/\\n/g, "\n"),
+    privateKey,
     [
       "https://www.googleapis.com/auth/spreadsheets",
       "https://www.googleapis.com/auth/drive.readonly",

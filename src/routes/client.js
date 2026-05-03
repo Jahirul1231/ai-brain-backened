@@ -126,13 +126,29 @@ clientRouter.post("/client/sheets/verify", async (req, res, next) => {
     const tabs = await listSheets({ tenantId: req.user.tenantId, spreadsheetId: sheetId });
     res.json({ ok: true, spreadsheetId: sheetId, tabs, tabCount: tabs.length });
   } catch (err) {
-    if (err.code === 403 || err.status === 403 || err.message?.toLowerCase().includes("permission") || err.message?.toLowerCase().includes("not found")) {
-      return res.status(403).json({
-        error: "no_access",
-        message: `Cannot access this sheet. Please share it with ${env.google.serviceAccountEmail} (Viewer role) and try again.`,
+    const msg = err.message || "";
+    const code = err.code || err.status || 0;
+
+    if (msg.includes("API has not been used") || msg.includes("it is disabled") || msg.includes("accessNotConfigured")) {
+      return res.status(400).json({
+        error: "api_disabled",
+        message: "Google Sheets API is not enabled. Go to Google Cloud Console → APIs & Services → enable Google Sheets API and Google Drive API.",
       });
     }
-    next(err);
+    if (code === 403 || msg.toLowerCase().includes("permission") || msg.toLowerCase().includes("does not have")) {
+      return res.status(403).json({
+        error: "no_access",
+        message: `Sheet not shared. Please open the sheet → Share → add ${env.google.serviceAccountEmail} as Viewer → click Send.`,
+      });
+    }
+    if (code === 404 || msg.toLowerCase().includes("not found")) {
+      return res.status(404).json({
+        error: "not_found",
+        message: "Sheet not found. Check the URL is correct.",
+      });
+    }
+    // Return actual Google error so we can debug
+    return res.status(500).json({ error: "google_error", message: msg || "Unknown error from Google API" });
   }
 });
 
