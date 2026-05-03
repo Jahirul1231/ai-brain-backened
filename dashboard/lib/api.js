@@ -1,4 +1,4 @@
-const BASE = "https://ai-brain-backened-production.up.railway.app";
+const BASE = "/api/proxy";
 
 const authHeaders = () => ({
   "Content-Type": "application/json",
