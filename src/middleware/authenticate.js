@@ -22,7 +22,7 @@ export const authenticate = async (req, res, next) => {
       .single();
 
     if (profileErr || !profile) {
-      return res.status(401).json({ error: "unauthorized", message: "User profile not found" });
+      return res.status(401).json({ error: "unauthorized", message: "User profile not found", detail: profileErr?.message || "no profile row" });
     }
 
     req.user = { id: data.user.id, email: data.user.email, role: profile.role, tenantId: profile.tenant_id };
