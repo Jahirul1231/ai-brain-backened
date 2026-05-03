@@ -4,6 +4,7 @@ import { requireTokens } from "../middleware/requireTokens.js";
 import { debitTokens } from "../services/tokenService.js";
 import { runPlannerAgent } from "../agents/plannerAgent.js";
 import { runReviewerAgent } from "../agents/reviewerAgent.js";
+import { getSupabase } from "../lib/supabase.js";
 import { logger } from "../lib/logger.js";
 
 export const chatRouter = Router();
@@ -27,20 +28,28 @@ chatRouter.post("/chat", authenticate, requireTokens(1), async (req, res, next) 
       toolResults,
     });
 
-    await debitTokens({
-      tenantId,
-      userId: req.user.id,
-      amount: 1,
-      description: `chat: ${message.slice(0, 80)}`,
-    });
+    const toolsUsed = toolResults.map((t) => t.tool);
 
-    logger.info("chat_complete", {
-      tenantId,
-      toolsUsed: toolResults.map((t) => t.tool),
-      tokensDebited: 1,
-    });
+    await Promise.all([
+      debitTokens({
+        tenantId,
+        userId: req.user.id,
+        amount: 1,
+        description: `chat: ${message.slice(0, 80)}`,
+      }),
+      getSupabase().from("chat_history").insert({
+        tenant_id: tenantId,
+        user_id: req.user.id,
+        message,
+        response: finalResponse,
+        tools_used: toolsUsed,
+        tokens_used: 1,
+      }),
+    ]);
 
-    res.json({ response: finalResponse, toolsUsed: toolResults.map((t) => t.tool) });
+    logger.info("chat_complete", { tenantId, toolsUsed, tokensDebited: 1 });
+
+    res.json({ response: finalResponse, toolsUsed });
   } catch (err) {
     next(err);
   }

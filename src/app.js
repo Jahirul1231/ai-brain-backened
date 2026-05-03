@@ -5,6 +5,7 @@ import { healthRouter } from "./routes/health.js";
 import { authRouter } from "./routes/auth.js";
 import { sheetsRouter } from "./routes/sheets.js";
 import { chatRouter } from "./routes/chat.js";
+import { adminRouter } from "./routes/admin.js";
 import { logger } from "./lib/logger.js";
 
 export const createApp = () => {
@@ -75,9 +76,13 @@ export const createApp = () => {
     <div class="endpoint"><span class="method post">POST</span><span class="path">/sheets/update</span><span class="desc">Update a specific range</span></div>
     <div class="endpoint"><span class="method post">POST</span><span class="path">/sheets/create</span><span class="desc">Create a new sheet tab</span></div>
     <div class="endpoint" style="margin-top:1rem"><span class="method post">POST</span><span class="path">/chat</span><span class="desc">Chat with your data — AI agent reads &amp; writes sheets</span></div>
+    <div class="endpoint" style="margin-top:1rem"><span class="method get">GET</span><span class="path">/admin/stats</span><span class="desc">Founder — overall stats (admin only)</span></div>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/admin/tenants</span><span class="desc">Founder — list all tenants + balances</span></div>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/admin/tenants/:id</span><span class="desc">Founder — tenant detail + ledger + chats</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="path">/admin/tenants/:id/grant</span><span class="desc">Founder — grant tokens to tenant</span></div>
   </div>
 
-  <div class="footer">AI Brain Backend v0.4.0</div>
+  <div class="footer">AI Brain Backend v0.5.0</div>
 </body>
 </html>`);
   });
@@ -85,6 +90,7 @@ export const createApp = () => {
   app.use(authRouter);
   app.use(sheetsRouter);
   app.use(chatRouter);
+  app.use(adminRouter);
 
   app.use(notFound);
   app.use(errorHandler);
