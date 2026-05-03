@@ -1,8 +1,8 @@
-const BASE = process.env.NEXT_PUBLIC_API_URL || "https://ai-brain-backened-production.up.railway.app";
+const BASE = "https://ai-brain-backened-production.up.railway.app";
 
 const authHeaders = () => ({
   "Content-Type": "application/json",
-  Authorization: `Bearer ${typeof window !== "undefined" ? localStorage.getItem("token") : ""}`,
+  Authorization: `Bearer ${typeof window !== "undefined" ? localStorage.getItem("token") || "" : ""}`,
 });
 
 export const login = async (email, password) => {

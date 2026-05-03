@@ -16,7 +16,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const data = await login(email, password);
-      localStorage.setItem("token", data.token);
+      localStorage.setItem("token", data.accessToken);
       router.push("/dashboard");
     } catch (err) {
       setError(err.message);
