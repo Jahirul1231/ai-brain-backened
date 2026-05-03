@@ -51,6 +51,57 @@ export const sendMessage = async (message, spreadsheetId) => {
   return data;
 };
 
+export const getAgents = async () => {
+  const res = await fetch(`${BASE}/agents`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch agents");
+  return res.json();
+};
+
+export const getIssues = async (status) => {
+  const url = status ? `${BASE}/issues?status=${status}` : `${BASE}/issues`;
+  const res = await fetch(url, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch issues");
+  return res.json();
+};
+
+export const getCustomers = async () => {
+  const res = await fetch(`${BASE}/customers`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch customers");
+  return res.json();
+};
+
+export const getTrials = async (status) => {
+  const url = status ? `${BASE}/trials?status=${status}` : `${BASE}/trials`;
+  const res = await fetch(url, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch trials");
+  return res.json();
+};
+
+export const getFinanceSummary = async () => {
+  const res = await fetch(`${BASE}/finance/summary`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch summary");
+  return res.json();
+};
+
+export const getTransactions = async () => {
+  const res = await fetch(`${BASE}/finance/transactions`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch transactions");
+  return res.json();
+};
+
+export const addTransaction = async (body) => {
+  const res = await fetch(`${BASE}/finance/transactions`, { method: "POST", headers: authHeaders(), body: JSON.stringify(body) });
+  if (!res.ok) throw new Error("Failed to add transaction");
+  return res.json();
+};
+
+export const getIntel = async (category) => {
+  const url = category ? `${BASE}/intel?category=${category}` : `${BASE}/intel`;
+  const res = await fetch(url, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch intel");
+  return res.json();
+};
+
 export const grantTokens = async (id, amount) => {
   const res = await fetch(`${BASE}/admin/tenants/${id}/grant`, {
     method: "POST",

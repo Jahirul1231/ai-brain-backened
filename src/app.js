@@ -6,6 +6,12 @@ import { authRouter } from "./routes/auth.js";
 import { sheetsRouter } from "./routes/sheets.js";
 import { chatRouter } from "./routes/chat.js";
 import { adminRouter } from "./routes/admin.js";
+import { agentsRouter } from "./routes/agents.js";
+import { issuesRouter } from "./routes/issues.js";
+import { customersRouter } from "./routes/customers.js";
+import { trialsRouter } from "./routes/trials.js";
+import { financeRouter } from "./routes/finance.js";
+import { intelRouter } from "./routes/intel.js";
 import { logger } from "./lib/logger.js";
 
 const ALLOWED_ORIGINS = [
@@ -109,6 +115,12 @@ export const createApp = () => {
   app.use(sheetsRouter);
   app.use(chatRouter);
   app.use(adminRouter);
+  app.use(agentsRouter);
+  app.use(issuesRouter);
+  app.use(customersRouter);
+  app.use(trialsRouter);
+  app.use(financeRouter);
+  app.use(intelRouter);
 
   app.use(notFound);
   app.use(errorHandler);

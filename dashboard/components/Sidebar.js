@@ -5,12 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 const NAV = [
   { href: "/dashboard", label: "Overview", icon: "◈", live: true },
   { href: "/dashboard/brain", label: "Master Brain", icon: "◎", live: true },
-  { href: "/dashboard/agents", label: "Agent Network", icon: "⬡", live: false },
-  { href: "/dashboard/issues", label: "Client Issues", icon: "⚡", live: false },
-  { href: "/dashboard/customers", label: "Onboarding", icon: "◉", live: false },
-  { href: "/dashboard/trials", label: "Trials & Sales", icon: "◈", live: false },
-  { href: "/dashboard/finance", label: "Finance", icon: "◇", live: false },
-  { href: "/dashboard/intel", label: "Intelligence", icon: "◎", live: false },
+  { href: "/dashboard/agents", label: "Agent Network", icon: "⬡", live: true },
+  { href: "/dashboard/issues", label: "Client Issues", icon: "⚡", live: true },
+  { href: "/dashboard/customers", label: "Onboarding", icon: "◉", live: true },
+  { href: "/dashboard/trials", label: "Trials & Sales", icon: "◈", live: true },
+  { href: "/dashboard/finance", label: "Finance", icon: "◇", live: true },
+  { href: "/dashboard/intel", label: "Intelligence", icon: "◎", live: true },
   { href: "/dashboard/tenants", label: "Tenants", icon: "▣", live: true },
 ];
 
