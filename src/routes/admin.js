@@ -92,7 +92,7 @@ adminRouter.get("/admin/clients", async (req, res, next) => {
         profiles(id, full_name, phone, city, role),
         token_balances(balance),
         onboarding_progress(step, completed),
-        sheet_connections(count)
+        sheet_connections(id)
       `, { count: "exact" })
       .order("created_at", { ascending: false })
       .range((page - 1) * limit, page * limit - 1);
@@ -115,9 +115,9 @@ adminRouter.get("/admin/clients", async (req, res, next) => {
         ...t,
         admin_email: adminProfile ? emailMap[adminProfile.id] : null,
         admin_profile: adminProfile,
-        token_balance: t.token_balances?.balance ?? 0,
+        token_balance: (Array.isArray(t.token_balances) ? t.token_balances[0]?.balance : t.token_balances?.balance) ?? 0,
         onboarding: t.onboarding_progress,
-        sheets_connected: t.sheet_connections?.[0]?.count || 0,
+        sheets_connected: Array.isArray(t.sheet_connections) ? t.sheet_connections.length : 0,
       };
     });
 
