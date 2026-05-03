@@ -4,6 +4,7 @@ import { notFound, errorHandler } from "./middleware/error.js";
 import { healthRouter } from "./routes/health.js";
 import { authRouter } from "./routes/auth.js";
 import { sheetsRouter } from "./routes/sheets.js";
+import { chatRouter } from "./routes/chat.js";
 import { logger } from "./lib/logger.js";
 
 export const createApp = () => {
@@ -73,15 +74,17 @@ export const createApp = () => {
     <div class="endpoint"><span class="method post">POST</span><span class="path">/sheets/append</span><span class="desc">Append rows to a sheet</span></div>
     <div class="endpoint"><span class="method post">POST</span><span class="path">/sheets/update</span><span class="desc">Update a specific range</span></div>
     <div class="endpoint"><span class="method post">POST</span><span class="path">/sheets/create</span><span class="desc">Create a new sheet tab</span></div>
+    <div class="endpoint" style="margin-top:1rem"><span class="method post">POST</span><span class="path">/chat</span><span class="desc">Chat with your data — AI agent reads &amp; writes sheets</span></div>
   </div>
 
-  <div class="footer">AI Brain Backend v0.3.0</div>
+  <div class="footer">AI Brain Backend v0.4.0</div>
 </body>
 </html>`);
   });
   app.use(healthRouter);
   app.use(authRouter);
   app.use(sheetsRouter);
+  app.use(chatRouter);
 
   app.use(notFound);
   app.use(errorHandler);
