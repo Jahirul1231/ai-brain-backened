@@ -203,12 +203,11 @@ export default function COOPage() {
             <div className="w-16 h-16 rounded-full bg-[#111] border border-[#2a2a2a] flex items-center justify-center text-xl font-bold text-[#00c853] mb-4">COO</div>
             <h2 className="text-lg font-extrabold mb-1">Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"}, Founder</h2>
             <p className="text-[#555] text-sm max-w-sm mb-6">I manage your agent network. Ask me anything or tag a specific agent with @mention.</p>
-            <div className="grid grid-cols-2 gap-2 w-full max-w-lg">
+            <div className="flex flex-wrap gap-2 justify-center max-w-lg">
               {QUICK_PROMPTS.map((p) => (
                 <button key={p.label} onClick={() => setInput(p.text)}
-                  className="text-left text-xs bg-[#111] border border-[#1e1e1e] hover:border-[#2a2a2a] px-4 py-3 rounded-xl text-[#666] hover:text-[#999] transition">
-                  <div className="font-semibold text-[#888] mb-0.5">{p.label}</div>
-                  <div className="text-[#444] truncate">{p.text}</div>
+                  className="text-xs bg-[#111] border border-[#1e1e1e] hover:border-[#2a2a2a] hover:text-white px-3 py-1.5 rounded-full text-[#666] transition">
+                  {p.label}
                 </button>
               ))}
             </div>
