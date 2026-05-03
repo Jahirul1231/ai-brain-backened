@@ -13,6 +13,7 @@ export default function ClientEpicenter() {
   const [clients, setClients] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState("");
   const [search, setSearch] = useState("");
   const [searching, setSearching] = useState(false);
   const [filter, setFilter] = useState({ status: "", trial: "" });
@@ -21,6 +22,7 @@ export default function ClientEpicenter() {
 
   const loadClients = useCallback(async () => {
     setLoading(true);
+    setApiError("");
     try {
       const params = { page, limit };
       if (filter.status) params.status = filter.status;
@@ -28,7 +30,9 @@ export default function ClientEpicenter() {
       const data = await getClients(params);
       setClients(data.clients || []);
       setTotal(data.total || 0);
-    } catch {}
+    } catch (err) {
+      setApiError(err.message || "Unknown error");
+    }
     finally { setLoading(false); }
   }, [page, filter]);
 
@@ -113,7 +117,10 @@ export default function ClientEpicenter() {
                 <div className="w-2 h-2 bg-[#00c853] rounded-full animate-pulse mx-auto" />
               </td></tr>
             )}
-            {!loading && clients.length === 0 && (
+            {!loading && apiError && (
+              <tr><td colSpan={7} className="px-5 py-10 text-center text-red-400 text-sm">API error: {apiError}</td></tr>
+            )}
+            {!loading && !apiError && clients.length === 0 && (
               <tr><td colSpan={7} className="px-5 py-10 text-center text-[#444] text-sm">No clients found</td></tr>
             )}
             {!loading && clients.map((c) => (
