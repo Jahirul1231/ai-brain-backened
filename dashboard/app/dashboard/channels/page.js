@@ -105,7 +105,7 @@ export default function ChannelsPage() {
   const totalUnread = channels.reduce((a, c) => a + (c.unread || 0), 0);
 
   return (
-    <div className="flex h-[calc(100vh-0px)] -m-8 overflow-hidden">
+    <div className="flex h-full overflow-hidden">
       {/* ── Channel list sidebar ── */}
       <div className="w-56 shrink-0 bg-[#0a0a0a] border-r border-[#1e1e1e] flex flex-col">
         <div className="px-4 py-4 border-b border-[#1e1e1e]">

@@ -164,7 +164,7 @@ export default function COOPage() {
     : [];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-0px)] -m-8 overflow-hidden bg-[#0d0d0d]">
+    <div className="flex flex-col h-full overflow-hidden bg-[#0d0d0d]">
       {/* Header */}
       <div className="px-6 py-4 border-b border-[#1e1e1e] flex items-center justify-between shrink-0 bg-[#0a0a0a]">
         <div className="flex items-center gap-3">
