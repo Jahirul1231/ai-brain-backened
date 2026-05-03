@@ -23,6 +23,11 @@ export const env = {
     model: process.env.CLAUDE_MODEL || "claude-sonnet-4-6",
   },
 
+  email: {
+    resendApiKey: process.env.RESEND_API_KEY || "",
+    fromAddress: process.env.EMAIL_FROM || "reports@reportude.com",
+  },
+
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID || "",
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",

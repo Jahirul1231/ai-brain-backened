@@ -83,8 +83,8 @@ export default function OnboardingPage() {
         const saved = await addSheet(sheetUrl.trim(), "My Spreadsheet", 0);
         setVerifyResult({ ok: true, manual: true, spreadsheetId: result.spreadsheetId, tabs: [] });
       } else {
-        // Verified — save with tab info
-        const name = sheetUrl.trim().split("/").slice(-2, -1)[0] || "My Spreadsheet";
+        // Verified — save with real spreadsheet title and tab info
+        const name = result.spreadsheetName || "My Spreadsheet";
         await addSheet(sheetUrl.trim(), name, result.tabCount);
         setVerifyResult(result);
       }

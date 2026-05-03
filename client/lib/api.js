@@ -77,11 +77,11 @@ export const getChatHistory = async () => {
   return res.json();
 };
 
-export const sendMessage = async (message, spreadsheetId, confirmed = false) => {
+export const sendMessage = async (message, spreadsheetId, confirmed = false, sheetIds = []) => {
   const res = await fetch(`${BASE}/client/chat`, {
     method: "POST",
     headers: authHeaders(),
-    body: JSON.stringify({ message, spreadsheetId, confirmed }),
+    body: JSON.stringify({ message, spreadsheetId, confirmed, sheetIds }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || data.message || "Failed to send");

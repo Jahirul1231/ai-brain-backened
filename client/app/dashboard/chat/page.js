@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { getChatHistory, sendMessage } from "../../../lib/api";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { getChatHistory, sendMessage, getSheets } from "../../../lib/api";
 
 const SUGGESTIONS = [
   "Summarize my data from last month",
@@ -10,95 +11,202 @@ const SUGGESTIONS = [
   "Create a summary report for this week",
 ];
 
+function SheetPill({ sheet, selected, onToggle }) {
+  const shortId = (sheet.spreadsheet_id || sheet.id || "").slice(0, 6);
+  return (
+    <button
+      onClick={() => onToggle(sheet.spreadsheet_id)}
+      className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition shrink-0 ${
+        selected
+          ? "bg-[#00c853]/10 border-[#00c853]/40 text-[#00c853]"
+          : "bg-[#111] border-[#2a2a2a] text-[#555] hover:border-[#444] hover:text-[#888]"
+      }`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${selected ? "bg-[#00c853]" : "bg-[#333]"}`} />
+      <span className="font-medium truncate max-w-[120px]">{sheet.spreadsheet_name || sheet.spreadsheet_id}</span>
+      <span className="font-mono opacity-50 text-[10px] shrink-0">#{shortId}</span>
+    </button>
+  );
+}
+
 export default function ChatPage() {
-  const [history, setHistory]     = useState([]);
-  const [input, setInput]         = useState("");
-  const [sheetId, setSheetId]     = useState("");
-  const [showSheet, setShowSheet] = useState(false);
-  const [loading, setLoading]     = useState(false);
-  const [tokens, setTokens]       = useState(null);
-  const [confirm, setConfirm]     = useState(null); // { message, originalMessage }
+  const router = useRouter();
+  const [history, setHistory]         = useState([]);
+  const [input, setInput]             = useState("");
+  const [sheets, setSheets]           = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [loading, setLoading]         = useState(false);
+  const [sheetsLoaded, setSheetsLoaded] = useState(false);
+  const [tokens, setTokens]           = useState(null);
+  const [confirm, setConfirm]         = useState(null);
   const bottomRef = useRef(null);
+
+  const loadSheets = useCallback(async () => {
+    try {
+      const data = await getSheets();
+      const list = data.sheets || [];
+      setSheets(list);
+      if (list.length > 0 && selectedIds.length === 0) {
+        const primary = list.find((s) => s.is_primary) || list[0];
+        setSelectedIds([primary.spreadsheet_id]);
+      }
+    } catch {}
+    finally { setSheetsLoaded(true); }
+  }, []);
 
   useEffect(() => {
     getChatHistory()
       .then(({ history: h }) => setHistory(h || []))
       .catch(() => {});
-  }, []);
+    loadSheets();
+  }, [loadSheets]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history, loading]);
 
+  const toggleSheet = (spreadsheetId) => {
+    setSelectedIds((prev) =>
+      prev.includes(spreadsheetId)
+        ? prev.filter((id) => id !== spreadsheetId)
+        : [...prev, spreadsheetId]
+    );
+  };
+
+  const exportText = (content) => {
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `report-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const submit = async (msg, confirmedFlag = false) => {
     if (!msg.trim() || loading) return;
-    const userMsg = { role: "user", content: msg, created_at: new Date().toISOString() };
-    setHistory((h) => [...h, userMsg]);
+    setHistory((h) => [...h, { role: "user", content: msg, created_at: new Date().toISOString() }]);
     setInput("");
     setLoading(true);
     setConfirm(null);
     try {
-      const data = await sendMessage(msg, sheetId || undefined, confirmedFlag);
+      const primarySheetId = selectedIds[0] || undefined;
+      const data = await sendMessage(msg, primarySheetId, confirmedFlag, selectedIds);
       if (data.requiresConfirmation) {
         setConfirm({ originalMessage: data.originalMessage, prompt: data.message });
         setLoading(false);
         return;
       }
       setTokens(data.tokensRemaining);
-      setHistory((h) => [...h, { role: "assistant", content: data.response, created_at: new Date().toISOString(), tools: data.toolResults }]);
+      setHistory((h) => [...h, {
+        role: "assistant",
+        content: data.response,
+        created_at: new Date().toISOString(),
+        tools: data.toolResults,
+      }]);
     } catch (err) {
-      setHistory((h) => [...h, { role: "assistant", content: `Error: ${err.message}`, created_at: new Date().toISOString(), isError: true }]);
+      setHistory((h) => [...h, {
+        role: "assistant",
+        content: `Error: ${err.message}`,
+        created_at: new Date().toISOString(),
+        isError: true,
+      }]);
     } finally {
       setLoading(false);
     }
   };
 
+  const selectedSheets = sheets.filter((s) => selectedIds.includes(s.spreadsheet_id));
+  const noSheets = sheetsLoaded && sheets.length === 0;
+
   return (
     <div className="flex flex-col h-screen">
       {/* Header */}
-      <div className="shrink-0 px-8 py-5 border-b border-[#1e1e1e] flex items-center justify-between">
+      <div className="shrink-0 px-8 py-4 border-b border-[#1e1e1e] flex items-center justify-between">
         <div>
           <h1 className="text-lg font-extrabold">AI Chat</h1>
           <p className="text-[#555] text-xs mt-0.5">Ask anything about your data</p>
         </div>
-        <div className="flex items-center gap-3">
-          {tokens !== null && (
-            <span className="text-xs text-[#444]">{tokens} tokens left</span>
-          )}
-          <button
-            onClick={() => setShowSheet((v) => !v)}
-            className={`text-xs px-3 py-1.5 rounded-lg border transition ${showSheet ? "border-[#00c853]/50 text-[#00c853] bg-[#00c853]/10" : "border-[#2a2a2a] text-[#555] hover:border-[#444]"}`}>
-            {showSheet ? "◎ Sheet set" : "⬡ Set Sheet ID"}
-          </button>
-        </div>
+        {tokens !== null && (
+          <span className="text-xs text-[#444] border border-[#1e1e1e] px-2.5 py-1 rounded-full">{tokens} tokens left</span>
+        )}
       </div>
 
-      {showSheet && (
-        <div className="shrink-0 px-8 py-3 bg-[#0d0d0d] border-b border-[#1e1e1e] flex gap-3 items-center">
-          <input
-            value={sheetId}
-            onChange={(e) => setSheetId(e.target.value)}
-            className="flex-1 bg-[#111] border border-[#2a2a2a] rounded-xl px-3 py-2 text-sm text-white placeholder-[#333] focus:outline-none focus:border-[#00c853]/50 transition"
-            placeholder="Paste Google Sheet URL or ID…"
-          />
-          <button onClick={() => setShowSheet(false)} className="text-xs text-[#555] hover:text-white transition">Done</button>
+      {/* Sheet selector bar */}
+      <div className="shrink-0 px-8 py-2.5 border-b border-[#1e1e1e] bg-[#080808]">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-[10px] text-[#333] uppercase tracking-widest shrink-0 font-semibold">Data Sources</span>
+
+          {!sheetsLoaded ? (
+            <div className="w-1.5 h-1.5 rounded-full bg-[#00c853] animate-pulse" />
+          ) : noSheets ? (
+            <button
+              onClick={() => router.push("/dashboard/settings")}
+              className="text-xs text-[#444] border border-dashed border-[#2a2a2a] px-3 py-1 rounded-full hover:border-[#00c853]/40 hover:text-[#00c853] transition"
+            >
+              + Connect a Google Sheet
+            </button>
+          ) : (
+            <>
+              {sheets.map((s) => (
+                <SheetPill
+                  key={s.spreadsheet_id}
+                  sheet={s}
+                  selected={selectedIds.includes(s.spreadsheet_id)}
+                  onToggle={toggleSheet}
+                />
+              ))}
+              <button
+                onClick={() => router.push("/dashboard/settings")}
+                className="text-[10px] text-[#2a2a2a] hover:text-[#555] transition"
+                title="Add sheet"
+              >
+                + Add
+              </button>
+            </>
+          )}
         </div>
-      )}
+        {selectedIds.length > 1 && (
+          <p className="text-[10px] text-[#444] mt-1.5">
+            {selectedIds.length} sheets selected — AI will combine data from all selected sources
+          </p>
+        )}
+      </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-8 py-6 space-y-4">
         {history.length === 0 && !loading && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="text-4xl mb-4 text-[#1a1a1a]">◎</div>
-            <p className="text-[#444] text-sm mb-6">Ask anything about your spreadsheet data</p>
-            <div className="flex flex-wrap gap-2 justify-center max-w-lg">
-              {SUGGESTIONS.map((s) => (
-                <button key={s} onClick={() => submit(s)}
-                  className="text-xs bg-[#111] border border-[#2a2a2a] px-3 py-1.5 rounded-full text-[#555] hover:text-white hover:border-[#444] transition">
-                  {s}
+            <div className="text-3xl mb-4 text-[#1a1a1a]">◎</div>
+            {noSheets ? (
+              <>
+                <p className="text-[#444] text-sm mb-3">Connect a Google Sheet to start asking questions</p>
+                <button
+                  onClick={() => router.push("/dashboard/settings")}
+                  className="text-xs bg-[#00c853] text-black font-bold px-4 py-2 rounded-xl hover:bg-[#00b248] transition"
+                >
+                  Connect a sheet →
                 </button>
-              ))}
-            </div>
+              </>
+            ) : selectedIds.length === 0 ? (
+              <p className="text-[#444] text-sm">Select a data source above to get started</p>
+            ) : (
+              <>
+                <p className="text-[#555] text-xs mb-6">
+                  {selectedIds.length === 1
+                    ? `Querying: ${selectedSheets[0]?.spreadsheet_name || selectedIds[0]}`
+                    : `Querying ${selectedIds.length} sheets`}
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center max-w-lg">
+                  {SUGGESTIONS.map((s) => (
+                    <button key={s} onClick={() => submit(s)}
+                      className="text-xs bg-[#111] border border-[#2a2a2a] px-3 py-1.5 rounded-full text-[#555] hover:text-white hover:border-[#444] transition">
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -128,8 +236,18 @@ export default function ChatPage() {
               }`}>
                 {msg.content}
               </div>
-              <div className="text-[10px] text-[#333] mt-1 px-1">
-                {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              <div className={`flex items-center gap-3 mt-1 px-1 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <span className="text-[10px] text-[#2a2a2a]">
+                  {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </span>
+                {msg.role === "assistant" && !msg.isError && (
+                  <button
+                    onClick={() => exportText(msg.content)}
+                    className="text-[10px] text-[#333] hover:text-[#555] transition"
+                  >
+                    ↓ Export
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -172,18 +290,40 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <div className="shrink-0 px-8 pb-6 pt-3">
+      {/* Input area */}
+      <div className="shrink-0 px-8 pb-6 pt-3 border-t border-[#161616]">
+        {selectedSheets.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-2.5">
+            {selectedSheets.map((s) => (
+              <span key={s.spreadsheet_id} className="inline-flex items-center gap-1 text-[10px] bg-[#00c853]/10 border border-[#00c853]/20 text-[#00c853] px-2 py-0.5 rounded-full">
+                ◎ {s.spreadsheet_name || s.spreadsheet_id}
+                <button
+                  onClick={() => toggleSheet(s.spreadsheet_id)}
+                  className="text-[#00c853]/50 hover:text-[#00c853] ml-0.5 leading-none"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         <form onSubmit={(e) => { e.preventDefault(); submit(input); }} className="flex gap-3">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={loading}
             className="flex-1 bg-[#111] border border-[#2a2a2a] rounded-2xl px-5 py-3.5 text-sm text-white placeholder-[#333] focus:outline-none focus:border-[#00c853]/50 transition disabled:opacity-50"
-            placeholder="Ask about your data…"
+            placeholder={
+              noSheets
+                ? "Connect a sheet first to ask questions…"
+                : selectedIds.length === 0
+                ? "Select a data source above…"
+                : "Ask about your data…"
+            }
           />
           <button
-            type="submit" disabled={loading || !input.trim()}
+            type="submit"
+            disabled={loading || !input.trim() || selectedIds.length === 0}
             className="bg-[#00c853] hover:bg-[#00b248] text-black font-bold px-5 py-3.5 rounded-2xl text-sm transition disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
           >
             →

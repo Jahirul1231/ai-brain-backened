@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getMe, getSheets, addSheet, removeSheet, configureSubdomain, updateProfile } from "../../../lib/api";
+import { getMe, getSheets, addSheet, removeSheet, verifySheet, configureSubdomain, updateProfile } from "../../../lib/api";
 
 export default function ClientSettingsPage() {
   const router = useRouter();
@@ -50,7 +50,16 @@ export default function ClientSettingsPage() {
     setSheetErr("");
     setAddingSheet(true);
     try {
-      await addSheet(sheetInput, sheetName || undefined);
+      let name = sheetName || undefined;
+      let tabCount = 0;
+      try {
+        const info = await verifySheet(sheetInput);
+        if (info.ok) {
+          name = name || info.spreadsheetName;
+          tabCount = info.tabCount || 0;
+        }
+      } catch {}
+      await addSheet(sheetInput, name, tabCount);
       setSheetInput("");
       setSheetName("");
       await loadSheets();

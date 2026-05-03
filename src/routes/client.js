@@ -5,7 +5,8 @@ import { chatLimiter } from "../middleware/rateLimiter.js";
 import { runPlannerAgent } from "../agents/plannerAgent.js";
 import { runReviewerAgent } from "../agents/reviewerAgent.js";
 import { notify, logActivity } from "../lib/notify.js";
-import { listSheets } from "../services/sheetsService.js";
+import { listSheets, getSpreadsheetInfo } from "../services/sheetsService.js";
+import { sendReportEmail } from "../lib/email.js";
 import { env } from "../config/env.js";
 
 export const clientRouter = Router();
@@ -119,12 +120,12 @@ clientRouter.post("/client/sheets/verify", async (req, res, next) => {
     const urlMatch = spreadsheetId.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
     if (urlMatch) sheetId = urlMatch[1];
 
-    if (!env.google.serviceAccountEmail || !env.google.serviceAccountKey) {
+    if (!env.google.serviceAccountEmail && !env.google.serviceAccountJson) {
       return res.json({ ok: false, not_configured: true, spreadsheetId: sheetId });
     }
 
-    const tabs = await listSheets({ tenantId: req.user.tenantId, spreadsheetId: sheetId });
-    res.json({ ok: true, spreadsheetId: sheetId, tabs, tabCount: tabs.length });
+    const { title, tabs } = await getSpreadsheetInfo({ tenantId: req.user.tenantId, spreadsheetId: sheetId });
+    res.json({ ok: true, spreadsheetId: sheetId, spreadsheetName: title, tabs, tabCount: tabs.length });
   } catch (err) {
     const msg = err.message || "";
     const code = err.code || err.status || 0;
@@ -300,7 +301,8 @@ clientRouter.get("/client/reports", async (req, res, next) => {
 /* ─── POST /client/reports ───────────────────────────────────── */
 clientRouter.post("/client/reports", chatLimiter, async (req, res, next) => {
   try {
-    const { title, prompt, format = "table", spreadsheetId, deliverTo = [] } = req.body;
+    const { title, prompt, format = "table", spreadsheetId, sheetIds = [], deliverTo = [] } = req.body;
+    const primarySheetId = spreadsheetId || sheetIds[0];
     if (!title || !prompt) {
       return res.status(400).json({ error: "validation", message: "title and prompt required" });
     }
@@ -334,7 +336,7 @@ clientRouter.post("/client/reports", chatLimiter, async (req, res, next) => {
     // Run AI agent asynchronously
     (async () => {
       try {
-        const { messages } = await runPlannerAgent(req.user.tenantId, prompt, spreadsheetId);
+        const { messages } = await runPlannerAgent(req.user.tenantId, prompt, primarySheetId);
         const reviewed = await runReviewerAgent(messages, prompt);
 
         // Debit 2 tokens
@@ -349,6 +351,11 @@ clientRouter.post("/client/reports", chatLimiter, async (req, res, next) => {
           .from("client_reports")
           .update({ status: "ready", result: reviewed.result, sheet_url: sheetUrl })
           .eq("id", report.id);
+
+        // Email delivery
+        if (deliverTo.length > 0 && reviewed.result) {
+          sendReportEmail({ to: deliverTo, reportTitle: title, reportContent: reviewed.result, format }).catch(() => {});
+        }
       } catch {
         await getSupabase()
           .from("client_reports")
@@ -486,7 +493,7 @@ clientRouter.post("/client/subdomain", async (req, res, next) => {
 /* ─── POST /client/chat ──────────────────────────────────────── */
 clientRouter.post("/client/chat", chatLimiter, async (req, res, next) => {
   try {
-    const { message, spreadsheetId, confirmed = false } = req.body;
+    const { message, spreadsheetId, sheetIds = [], confirmed = false } = req.body;
     if (!message) return res.status(400).json({ error: "validation", message: "message required" });
 
     const sb = getSupabase();

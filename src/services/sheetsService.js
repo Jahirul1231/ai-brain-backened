@@ -107,3 +107,15 @@ export const listSheets = async ({ tenantId, spreadsheetId }) => {
     columnCount: s.properties.gridProperties?.columnCount,
   }));
 };
+
+export const getSpreadsheetInfo = async ({ tenantId, spreadsheetId }) => {
+  const sheets = await getSheetsClient(tenantId);
+  const res = await sheets.spreadsheets.get({ spreadsheetId, fields: "properties.title,sheets.properties" });
+  const tabs = res.data.sheets.map((s) => ({
+    sheetId: s.properties.sheetId,
+    title: s.properties.title,
+    rowCount: s.properties.gridProperties?.rowCount,
+    columnCount: s.properties.gridProperties?.columnCount,
+  }));
+  return { title: res.data.properties?.title || spreadsheetId, tabs };
+};
