@@ -29,6 +29,7 @@ export const env = {
     redirectUri: process.env.GOOGLE_REDIRECT_URI || "",
     serviceAccountEmail: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || "",
     serviceAccountKey: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || "",
+    serviceAccountJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "",
   },
 };
 

@@ -21,7 +21,7 @@ const getConnection = async (tenantId) => {
 };
 
 const getSheetsClient = async (tenantId) => {
-  if (env.google.serviceAccountEmail && env.google.serviceAccountKey) {
+  if (env.google.serviceAccountJson || (env.google.serviceAccountEmail && env.google.serviceAccountKey)) {
     const auth = createServiceAccountClient();
     return google.sheets({ version: "v4", auth });
   }
