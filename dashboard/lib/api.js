@@ -135,6 +135,10 @@ export const getClients = async (params = {}) => {
   const q = new URLSearchParams(params).toString();
   const res = await fetch(`${BASE}/admin/clients${q ? `?${q}` : ""}`, { headers: authHeaders() });
   if (!res.ok) {
+    if (res.status === 401) {
+      if (typeof window !== "undefined") { localStorage.removeItem("token"); window.location.href = "/login"; }
+      throw new Error("Session expired — redirecting to login");
+    }
     const body = await res.json().catch(() => ({}));
     throw new Error(`${res.status}: ${body.message || body.error || "Failed to fetch clients"}`);
   }
