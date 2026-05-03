@@ -3,6 +3,7 @@ import { requestId } from "./middleware/requestId.js";
 import { notFound, errorHandler } from "./middleware/error.js";
 import { healthRouter } from "./routes/health.js";
 import { authRouter } from "./routes/auth.js";
+import { sheetsRouter } from "./routes/sheets.js";
 import { logger } from "./lib/logger.js";
 
 export const createApp = () => {
@@ -64,14 +65,23 @@ export const createApp = () => {
     <div class="endpoint"><span class="method post">POST</span><span class="path">/auth/register</span><span class="desc">Create account + tenant</span></div>
     <div class="endpoint"><span class="method post">POST</span><span class="path">/auth/login</span><span class="desc">Login, get JWT token</span></div>
     <div class="endpoint"><span class="method get">GET</span><span class="path">/auth/me</span><span class="desc">Current user + token balance</span></div>
+    <div class="endpoint" style="margin-top:1rem"><span class="method get">GET</span><span class="path">/sheets/connect</span><span class="desc">Connect Google account (OAuth)</span></div>
+    <div class="endpoint"><span class="method get">GET</span><span class="path">/sheets/status</span><span class="desc">Check Google connection status</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="path">/sheets/list</span><span class="desc">List tabs in a spreadsheet</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="path">/sheets/read</span><span class="desc">Read data from a range</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="path">/sheets/write</span><span class="desc">Write data to a range</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="path">/sheets/append</span><span class="desc">Append rows to a sheet</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="path">/sheets/update</span><span class="desc">Update a specific range</span></div>
+    <div class="endpoint"><span class="method post">POST</span><span class="path">/sheets/create</span><span class="desc">Create a new sheet tab</span></div>
   </div>
 
-  <div class="footer">AI Brain Backend v0.2.0</div>
+  <div class="footer">AI Brain Backend v0.3.0</div>
 </body>
 </html>`);
   });
   app.use(healthRouter);
   app.use(authRouter);
+  app.use(sheetsRouter);
 
   app.use(notFound);
   app.use(errorHandler);

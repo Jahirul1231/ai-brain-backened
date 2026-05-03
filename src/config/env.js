@@ -22,6 +22,12 @@ export const env = {
     apiKey: process.env.ANTHROPIC_API_KEY || "",
     model: process.env.CLAUDE_MODEL || "claude-sonnet-4-6",
   },
+
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID || "",
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+    redirectUri: process.env.GOOGLE_REDIRECT_URI || "",
+  },
 };
 
 export const isProd = env.nodeEnv === "production";
