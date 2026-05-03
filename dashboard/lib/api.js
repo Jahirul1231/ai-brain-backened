@@ -209,3 +209,31 @@ export const replyTicket = async (id, message) => {
   if (!res.ok) throw new Error("Failed to send reply");
   return res.json();
 };
+
+// Agent Channels
+export const getChannels = async () => {
+  const res = await fetch(`${BASE}/channels`, { headers: authHeaders() });
+  if (!res.ok) return { channels: [] };
+  return res.json();
+};
+
+export const getChannelMessages = async (slug, before) => {
+  const url = before ? `${BASE}/channels/${slug}/messages?before=${encodeURIComponent(before)}` : `${BASE}/channels/${slug}/messages`;
+  const res = await fetch(url, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch messages");
+  return res.json();
+};
+
+export const postChannelMessage = async (slug, content) => {
+  const res = await fetch(`${BASE}/channels/${slug}/post`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ content, sender_name: "Founder", sender_type: "founder" }),
+  });
+  if (!res.ok) throw new Error("Failed to send");
+  return res.json();
+};
+
+export const markChannelRead = async (slug) => {
+  await fetch(`${BASE}/channels/${slug}/read`, { method: "PATCH", headers: authHeaders() });
+};

@@ -2,14 +2,15 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getNotifications } from "../lib/api";
+import { getNotifications, getChannels } from "../lib/api";
 
 const NAV = [
   { href: "/dashboard",               label: "Overview",         icon: "◈" },
+  { href: "/dashboard/channels",      label: "Agent Channels",   icon: "◎", channelBadge: true },
   { href: "/dashboard/brain",         label: "Master Brain",     icon: "◎" },
   { href: "/dashboard/agents",        label: "Agent Network",    icon: "⬡" },
   { href: "/dashboard/tenants",       label: "Client Epicenter", icon: "▣" },
-  { href: "/dashboard/support",       label: "Support Queue",    icon: "◇", supportBadge: true },
+  { href: "/dashboard/support",       label: "Support Queue",    icon: "◇" },
   { href: "/dashboard/issues",        label: "Client Issues",    icon: "⚡" },
   { href: "/dashboard/customers",     label: "Onboarding",       icon: "◉" },
   { href: "/dashboard/trials",        label: "Trials & Sales",   icon: "◈" },
@@ -26,12 +27,18 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router   = useRouter();
   const [unread, setUnread] = useState(0);
+  const [channelUnread, setChannelUnread] = useState(0);
 
   useEffect(() => {
-    getNotifications().then((d) => setUnread(d.unread || 0)).catch(() => {});
-    const interval = setInterval(() => {
+    const poll = () => {
       getNotifications().then((d) => setUnread(d.unread || 0)).catch(() => {});
-    }, 30000);
+      getChannels().then((d) => {
+        const total = (d.channels || []).reduce((acc, ch) => acc + (ch.unread || 0), 0);
+        setChannelUnread(total);
+      }).catch(() => {});
+    };
+    poll();
+    const interval = setInterval(poll, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -47,6 +54,11 @@ export default function Sidebar() {
         {item.badge && unread > 0 && (
           <span className="bg-[#00c853] text-black text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
             {unread > 9 ? "9+" : unread}
+          </span>
+        )}
+        {item.channelBadge && channelUnread > 0 && (
+          <span className="bg-[#00c853] text-black text-[10px] font-bold min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center">
+            {channelUnread > 99 ? "99+" : channelUnread}
           </span>
         )}
       </Link>

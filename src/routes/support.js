@@ -5,6 +5,7 @@ import { getSupabase } from "../lib/supabase.js";
 import { runPlannerAgent } from "../agents/plannerAgent.js";
 import { runReviewerAgent } from "../agents/reviewerAgent.js";
 import { notify } from "../lib/notify.js";
+import { postToChannel } from "../lib/channelPost.js";
 
 export const supportRouter = Router();
 
@@ -44,6 +45,7 @@ supportRouter.post("/support/inbound", async (req, res, next) => {
 
     // Notify founder dashboard
     await notify({ type: "new_issue", title: `New ticket: ${subject}`, body: `From ${from}`, link: `/dashboard/support` });
+    await postToChannel("support", "Support Agent", `🎫 New ticket **${ticket.ticket_number}**: "${subject}" — from ${from_name || from}`, { ticket_id: ticket.id, ticket_number: ticket.ticket_number });
 
     // AI draft response (non-blocking)
     if (process.env.ANTHROPIC_API_KEY) {
@@ -91,6 +93,7 @@ supportRouter.post("/support/tickets", authenticate, async (req, res, next) => {
       .single();
     if (error) throw error;
     await notify({ type: "new_issue", title: `New ticket: ${subject}`, body: `From ${req.user.email}`, link: `/dashboard/support` });
+    await postToChannel("support", "Support Agent", `🎫 New ticket **${ticket.ticket_number}**: "${subject}" — from client ${req.user.email}`, { ticket_id: ticket.id, ticket_number: ticket.ticket_number });
     res.status(201).json(ticket);
   } catch (err) {
     next(err);

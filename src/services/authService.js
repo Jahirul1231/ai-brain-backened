@@ -1,4 +1,5 @@
 import { getSupabase } from "../lib/supabase.js";
+import { postToChannel } from "../lib/channelPost.js";
 
 const FREE_PLAN_TOKENS = 500; // generous trial balance
 const TRIAL_DAYS = 7;
@@ -57,6 +58,10 @@ export const register = async ({ name, email, password }) => {
     .insert({ tenant_id: tenant.id, step: 1, business_name: name })
     .then(() => null)
     .catch(() => null);
+
+  // 6. Announce in agent channels (non-blocking)
+  postToChannel("onboarding", "Onboarding Agent", `👋 New client joined: **${name}** (${email}) — 7-day trial started. Onboarding at step 1.`, { tenant_id: tenant.id });
+  postToChannel("ops", "OPS Agent", `✅ New account created: **${name}** — trial ends ${trialEndsAt.toLocaleDateString()}. Tokens: ${FREE_PLAN_TOKENS}.`, { tenant_id: tenant.id });
 
   return { userId, tenantId: tenant.id, email };
 };
