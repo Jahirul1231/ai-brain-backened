@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import { getStats, getSystemStatus, getNotifications } from "../../lib/api";
+import { useEffect, useState, useCallback } from "react";
+import { getStats, getSystemStatus, getNotifications, getClients } from "../../lib/api";
 import Link from "next/link";
 
 function StatusDot({ status }) {
@@ -21,16 +21,33 @@ function ServiceRow({ name, status, message }) {
   );
 }
 
-export default function DashboardPage() {
-  const [stats, setStats]           = useState(null);
-  const [system, setSystem]         = useState(null);
-  const [notifications, setNotifs]  = useState([]);
+function timeAgo(ts) {
+  const diff = Date.now() - new Date(ts).getTime();
+  if (diff < 60000) return "just now";
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  return new Date(ts).toLocaleDateString();
+}
 
-  useEffect(() => {
+export default function DashboardPage() {
+  const [stats, setStats]          = useState(null);
+  const [system, setSystem]        = useState(null);
+  const [notifications, setNotifs] = useState([]);
+  const [recentClients, setRecent] = useState([]);
+
+  const load = useCallback(async () => {
     getStats().then(setStats).catch(() => {});
     getSystemStatus().then(setSystem).catch(() => {});
     getNotifications().then((d) => setNotifs(d.notifications?.slice(0, 5) || [])).catch(() => {});
+    getClients({ page: 1, limit: 5 }).then((d) => setRecent(d.clients || [])).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    load();
+    // Auto-refresh every 30s so new signups appear
+    const t = setInterval(load, 30000);
+    return () => clearInterval(t);
+  }, [load]);
 
   const svcList = system ? Object.entries(system.services).map(([k, v]) => ({ key: k, ...v })) : [];
   const allGreen = system?.overall === "healthy";
@@ -49,7 +66,7 @@ export default function DashboardPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
-          { label: "Tenants", value: stats?.totalTenants },
+          { label: "Total Clients", value: stats?.totalTenants },
           { label: "Total Chats", value: stats?.totalChats },
           { label: "Chats Today", value: stats?.chatsToday, green: true },
           { label: "Tokens Left", value: stats?.totalTokensRemaining },
@@ -61,21 +78,50 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* Recent Signups + Notifications */}
       <div className="grid md:grid-cols-2 gap-6 mb-6">
-        {/* System Status */}
+
+        {/* Recent Signups */}
         <div className="bg-[#111] border border-[#1e1e1e] rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-[#888] uppercase tracking-widest">System Status</h2>
-            <Link href="/dashboard/settings" className="text-xs text-[#444] hover:text-white transition">View all →</Link>
+            <h2 className="text-sm font-semibold text-[#888] uppercase tracking-widest">Recent Signups</h2>
+            <Link href="/dashboard/tenants" className="text-xs text-[#444] hover:text-white transition">All clients →</Link>
           </div>
-          {svcList.length === 0 ? (
-            <p className="text-[#444] text-sm">Loading…</p>
+          {recentClients.length === 0 ? (
+            <p className="text-[#444] text-sm">No clients yet</p>
           ) : (
-            svcList.map((s) => <ServiceRow key={s.key} name={s.key.charAt(0).toUpperCase() + s.key.slice(1)} status={s.status} message={s.message} />)
+            <ul className="space-y-3">
+              {recentClients.map((c) => {
+                const trial = c.trial_active;
+                const trialDays = c.trial_ends_at
+                  ? Math.max(0, Math.ceil((new Date(c.trial_ends_at) - new Date()) / 86400000))
+                  : null;
+                return (
+                  <li key={c.id}>
+                    <Link href={`/dashboard/tenants/${c.id}`} className="flex items-center justify-between group">
+                      <div>
+                        <p className="text-sm font-semibold text-white group-hover:text-[#00c853] transition">{c.name}</p>
+                        <p className="text-xs text-[#444]">{c.admin_email || c.business_slug} · {timeAgo(c.created_at)}</p>
+                      </div>
+                      <div className="text-right shrink-0 ml-3">
+                        {trial ? (
+                          <span className="text-xs text-[#00c853] bg-[#00c853]/10 border border-[#00c853]/20 px-2 py-0.5 rounded-full">
+                            {trialDays}d trial
+                          </span>
+                        ) : (
+                          <span className="text-xs text-[#555] bg-[#1a1a1a] border border-[#2a2a2a] px-2 py-0.5 rounded-full">paid</span>
+                        )}
+                        <p className="text-[10px] text-[#333] mt-1">{c.sheets_connected || 0} sheet{c.sheets_connected !== 1 ? "s" : ""}</p>
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
 
-        {/* Recent Notifications */}
+        {/* Recent Activity */}
         <div className="bg-[#111] border border-[#1e1e1e] rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-[#888] uppercase tracking-widest">Recent Activity</h2>
@@ -91,7 +137,7 @@ export default function DashboardPage() {
                   <div>
                     <p className="text-sm font-medium">{n.title}</p>
                     {n.body && <p className="text-xs text-[#555]">{n.body}</p>}
-                    <p className="text-[#333] text-xs mt-0.5">{new Date(n.created_at).toLocaleString()}</p>
+                    <p className="text-[#333] text-xs mt-0.5">{timeAgo(n.created_at)}</p>
                   </div>
                 </li>
               ))}
@@ -100,16 +146,29 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* System Status */}
+      <div className="bg-[#111] border border-[#1e1e1e] rounded-xl p-5 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-[#888] uppercase tracking-widest">System Status</h2>
+          <Link href="/dashboard/settings" className="text-xs text-[#444] hover:text-white transition">Settings →</Link>
+        </div>
+        {svcList.length === 0 ? (
+          <p className="text-[#444] text-sm">Loading…</p>
+        ) : (
+          svcList.map((s) => <ServiceRow key={s.key} name={s.key.charAt(0).toUpperCase() + s.key.slice(1)} status={s.status} message={s.message} />)
+        )}
+      </div>
+
       {/* Quick Actions */}
       <div className="bg-[#111] border border-[#1e1e1e] rounded-xl p-5">
         <h2 className="text-sm font-semibold text-[#888] uppercase tracking-widest mb-4">Quick Actions</h2>
         <div className="flex flex-wrap gap-3">
           {[
-            { label: "Talk to Brain", href: "/dashboard/brain" },
-            { label: "View Tenants", href: "/dashboard/tenants" },
-            { label: "Check Issues", href: "/dashboard/issues" },
+            { label: "COO Agent", href: "/dashboard/brain" },
+            { label: "Client Epicenter", href: "/dashboard/tenants" },
+            { label: "Support Queue", href: "/dashboard/support" },
+            { label: "Channels", href: "/dashboard/channels" },
             { label: "Finance", href: "/dashboard/finance" },
-            { label: "Settings", href: "/dashboard/settings" },
           ].map((a) => (
             <Link key={a.href} href={a.href} className="bg-[#1a1a1a] hover:bg-[#222] border border-[#2a2a2a] text-sm px-4 py-2 rounded-lg transition">
               {a.label} →
