@@ -1,7 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Navbar from "../../components/Navbar";
+import Sidebar from "../../components/Sidebar";
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
@@ -9,9 +9,9 @@ export default function DashboardLayout({ children }) {
     if (!localStorage.getItem("token")) router.replace("/login");
   }, [router]);
   return (
-    <div>
-      <Navbar />
-      <main className="max-w-6xl mx-auto px-6 py-8">{children}</main>
+    <div className="flex min-h-screen">
+      <Sidebar />
+      <main className="flex-1 overflow-auto">{children}</main>
     </div>
   );
 }

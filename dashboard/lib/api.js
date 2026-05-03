@@ -34,6 +34,23 @@ export const getTenantDetail = async (id) => {
   return res.json();
 };
 
+export const getChatHistory = async () => {
+  const res = await fetch(`${BASE}/chat/history`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to load history");
+  return res.json();
+};
+
+export const sendMessage = async (message, spreadsheetId) => {
+  const res = await fetch(`${BASE}/chat`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ message, spreadsheetId }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || data.message || "Failed to send");
+  return data;
+};
+
 export const grantTokens = async (id, amount) => {
   const res = await fetch(`${BASE}/admin/tenants/${id}/grant`, {
     method: "POST",

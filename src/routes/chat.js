@@ -9,6 +9,20 @@ import { logger } from "../lib/logger.js";
 
 export const chatRouter = Router();
 
+chatRouter.get("/chat/history", authenticate, async (req, res, next) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const { data, error } = await getSupabase()
+      .from("chat_history")
+      .select("id, message, response, tools_used, tokens_used, created_at")
+      .eq("tenant_id", req.tenant.id)
+      .order("created_at", { ascending: true })
+      .limit(limit);
+    if (error) throw error;
+    res.json(data || []);
+  } catch (err) { next(err); }
+});
+
 chatRouter.post("/chat", authenticate, requireTokens(1), async (req, res, next) => {
   try {
     const { message, spreadsheetId } = req.body;
