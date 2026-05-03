@@ -26,7 +26,7 @@ export const createApp = () => {
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AI Brain — Backend</title>
+  <title>Reportude AI — Backend</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: #fff; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; }
@@ -51,7 +51,7 @@ export const createApp = () => {
 </head>
 <body>
   <div class="badge">● LIVE</div>
-  <h1>AI Brain</h1>
+  <h1>Reportude AI</h1>
   <p class="sub">Backend API — powered by Express · Supabase · Claude</p>
 
   <div class="grid">
@@ -82,7 +82,7 @@ export const createApp = () => {
     <div class="endpoint"><span class="method post">POST</span><span class="path">/admin/tenants/:id/grant</span><span class="desc">Founder — grant tokens to tenant</span></div>
   </div>
 
-  <div class="footer">AI Brain Backend v0.5.0</div>
+  <div class="footer">Reportude AI Backend v0.5.0</div>
 </body>
 </html>`);
   });

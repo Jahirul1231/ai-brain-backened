@@ -16,7 +16,7 @@ export default function DashboardPage() {
       <div className="mb-8">
         <div className="inline-block bg-[#00c853] text-black text-xs font-bold px-3 py-1 rounded-full mb-3">● LIVE</div>
         <h1 className="text-3xl font-extrabold">Founder Dashboard</h1>
-        <p className="text-[#888] mt-1 text-sm">Real-time overview of your AI Brain platform</p>
+        <p className="text-[#888] mt-1 text-sm">Real-time overview of your Reportude AI platform</p>
       </div>
 
       {error && <p className="text-red-400 text-sm mb-6">{error}</p>}

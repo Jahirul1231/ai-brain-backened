@@ -1,7 +1,7 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "AI Brain — Founder Dashboard",
+  title: "Reportude AI — Founder Dashboard",
   description: "Manage tenants, tokens, and chat history",
 };
 

@@ -32,7 +32,7 @@ export default function LoginPage() {
           <div className="inline-block bg-[#00c853] text-black text-xs font-bold px-3 py-1 rounded-full mb-4">
             FOUNDER ACCESS
           </div>
-          <h1 className="text-3xl font-extrabold">AI Brain</h1>
+          <h1 className="text-3xl font-extrabold">Reportude AI</h1>
           <p className="text-[#888] mt-1 text-sm">Sign in to your dashboard</p>
         </div>
 
