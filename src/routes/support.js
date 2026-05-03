@@ -106,59 +106,155 @@ supportRouter.get("/admin/support/tickets", authenticate, requireAdmin, async (r
     const sb = getSupabase();
     const { status, priority } = req.query;
 
-    // Filtered tickets
     let q = sb.from("support_tickets")
-      .select("*, tenants(name, business_slug)")
+      .select("id, ticket_number, subject, body, status, priority, from_email, from_name, ai_draft, resolved_at, resolution_note, resolved_by, created_at, updated_at, tenant_id, tenants(name, business_slug)")
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(200);
     if (status) q = q.eq("status", status);
     if (priority) q = q.eq("priority", priority);
     const { data, error } = await q;
     if (error) throw error;
 
-    // Global counts (unfiltered) for tab badges
-    const { data: allStatuses } = await sb.from("support_tickets")
-      .select("status");
-    const counts = { open: 0, in_progress: 0, resolved: 0, closed: 0 };
-    (allStatuses || []).forEach((t) => { if (counts[t.status] !== undefined) counts[t.status]++; });
+    // Per-tenant ticket counts + phone numbers in one pass
+    const tenantIds = [...new Set((data || []).map((t) => t.tenant_id).filter(Boolean))];
+    const [ticketCountMap, profileMap] = await Promise.all([
+      (async () => {
+        if (!tenantIds.length) return {};
+        const { data: all } = await sb.from("support_tickets").select("tenant_id").in("tenant_id", tenantIds);
+        const map = {};
+        (all || []).forEach((t) => { map[t.tenant_id] = (map[t.tenant_id] || 0) + 1; });
+        return map;
+      })(),
+      (async () => {
+        if (!tenantIds.length) return {};
+        const { data: profs } = await sb.from("profiles").select("tenant_id, phone, full_name").in("tenant_id", tenantIds);
+        const map = {};
+        (profs || []).forEach((p) => { if (!map[p.tenant_id]) map[p.tenant_id] = p; });
+        return map;
+      })(),
+    ]);
 
-    res.json({ tickets: data || [], counts });
-  } catch (err) {
-    next(err);
-  }
+    const enriched = (data || []).map((t) => ({
+      ...t,
+      client_ticket_count: t.tenant_id ? (ticketCountMap[t.tenant_id] || 1) : 1,
+      client_phone: t.tenant_id ? (profileMap[t.tenant_id]?.phone || null) : null,
+      client_full_name: t.tenant_id ? (profileMap[t.tenant_id]?.full_name || t.from_name) : t.from_name,
+    }));
+
+    // Global counts + today stats
+    const { data: allMeta } = await sb.from("support_tickets").select("status, resolved_at");
+    const counts = { open: 0, in_progress: 0, resolved: 0, closed: 0 };
+    (allMeta || []).forEach((t) => { if (counts[t.status] !== undefined) counts[t.status]++; });
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const resolvedToday = (allMeta || []).filter((t) => t.resolved_at && new Date(t.resolved_at) >= todayStart).length;
+
+    res.json({ tickets: enriched, counts, resolved_today: resolvedToday });
+  } catch (err) { next(err); }
+});
+
+/* ── Admin: GET /admin/support/tickets/search ─────────────────── */
+supportRouter.get("/admin/support/tickets/search", authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const { q } = req.query;
+    if (!q?.trim()) return res.json({ tickets: [] });
+    const sb = getSupabase();
+    const term = q.trim();
+
+    const COLS = "id, ticket_number, subject, status, priority, from_email, client_full_name, resolved_at, created_at, tenant_id, tenants(name)";
+
+    const [{ data: byNumber }, { data: byEmail }] = await Promise.all([
+      sb.from("support_tickets").select(COLS).ilike("ticket_number", `%${term}%`).limit(30),
+      sb.from("support_tickets").select(COLS).ilike("from_email", `%${term}%`).limit(30),
+    ]);
+
+    // Also search by phone via profiles
+    const { data: phoneProfiles } = await sb.from("profiles").select("tenant_id").ilike("phone", `%${term}%`).limit(10);
+    const phoneTenantIds = (phoneProfiles || []).map((p) => p.tenant_id).filter(Boolean);
+    let byPhone = [];
+    if (phoneTenantIds.length) {
+      const { data } = await sb.from("support_tickets").select(COLS).in("tenant_id", phoneTenantIds).limit(30);
+      byPhone = data || [];
+    }
+
+    const seen = new Set();
+    const tickets = [...(byNumber || []), ...(byEmail || []), ...byPhone].filter((t) => {
+      if (seen.has(t.id)) return false;
+      seen.add(t.id);
+      return true;
+    });
+
+    res.json({ tickets });
+  } catch (err) { next(err); }
+});
+
+/* ── Admin: GET /admin/support/tickets/:id — full QA detail ───── */
+supportRouter.get("/admin/support/tickets/:id", authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const sb = getSupabase();
+    const { data: ticket, error } = await sb.from("support_tickets")
+      .select("*, tenants(name, business_slug)")
+      .eq("id", req.params.id).single();
+    if (error || !ticket) return res.status(404).json({ error: "not_found" });
+
+    const [{ data: messages }, clientHistory, clientProfile] = await Promise.all([
+      sb.from("ticket_messages").select("*").eq("ticket_id", req.params.id).order("created_at"),
+      ticket.tenant_id
+        ? sb.from("support_tickets")
+            .select("ticket_number, subject, status, priority, created_at, resolved_at")
+            .eq("tenant_id", ticket.tenant_id)
+            .order("created_at", { ascending: false })
+            .limit(20)
+        : { data: [] },
+      ticket.tenant_id
+        ? sb.from("profiles").select("full_name, phone, city").eq("tenant_id", ticket.tenant_id).single()
+        : { data: null },
+    ]);
+
+    res.json({
+      ticket,
+      messages: messages || [],
+      client: {
+        name: clientProfile.data?.full_name || ticket.from_name,
+        email: ticket.from_email,
+        phone: clientProfile.data?.phone,
+        city: clientProfile.data?.city,
+        total_tickets: clientHistory.data?.length || 1,
+        ticket_history: clientHistory.data || [],
+      },
+    });
+  } catch (err) { next(err); }
 });
 
 /* ── Admin: PATCH /admin/support/tickets/:id ──────────────────── */
 supportRouter.patch("/admin/support/tickets/:id", authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const allowed = ["status", "priority", "assigned_to", "ai_draft"];
+    const allowed = ["status", "priority", "assigned_to", "ai_draft", "resolution_note"];
     const updates = { updated_at: new Date().toISOString() };
     for (const k of allowed) if (req.body[k] !== undefined) updates[k] = req.body[k];
-    if (req.body.status === "resolved") updates.resolved_at = new Date().toISOString();
-    const { data, error } = await getSupabase()
-      .from("support_tickets")
-      .update(updates)
-      .eq("id", req.params.id)
-      .select()
-      .single();
-    if (error) throw error;
-    res.json(data);
-  } catch (err) {
-    next(err);
-  }
+    if (req.body.status === "resolved") {
+      updates.resolved_at = new Date().toISOString();
+      updates.resolved_by = "Founder";
+    }
+    await getSupabase().from("support_tickets").update(updates).eq("id", req.params.id);
+    res.json({ ok: true });
+  } catch (err) { next(err); }
 });
 
 /* ── Admin: POST /admin/support/tickets/:id/reply ─────────────── */
 supportRouter.post("/admin/support/tickets/:id/reply", authenticate, requireAdmin, async (req, res, next) => {
   try {
-    const { body } = req.body;
-    if (!body) return res.status(400).json({ error: "body required" });
+    const content = req.body.message || req.body.body;
+    if (!content) return res.status(400).json({ error: "message required" });
     const sb = getSupabase();
-    const { data: ticket } = await sb.from("support_tickets").select("from_email").eq("id", req.params.id).single();
-    await sb.from("ticket_messages").insert({ ticket_id: req.params.id, from_email: "support@reportude.com", body, is_staff_reply: true });
+    await sb.from("ticket_messages").insert({
+      ticket_id: req.params.id,
+      sender: "staff",
+      message: content,
+      is_staff_reply: true,
+    });
     await sb.from("support_tickets").update({ status: "in_progress", updated_at: new Date().toISOString() }).eq("id", req.params.id);
-    res.json({ ok: true, sent_to: ticket?.from_email });
-  } catch (err) {
-    next(err);
-  }
+    // Post to channel
+    await postToChannel("support", "Support Agent", `↩ Staff reply sent on ticket — resolving...`, { ticket_id: req.params.id });
+    res.json({ ok: true });
+  } catch (err) { next(err); }
 });

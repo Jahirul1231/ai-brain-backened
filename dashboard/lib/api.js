@@ -183,6 +183,18 @@ export const exportClientsCSV = async () => {
 };
 
 // Support tickets — admin
+export const searchAdminTickets = async (q) => {
+  const res = await fetch(`${BASE}/admin/support/tickets/search?q=${encodeURIComponent(q)}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Search failed");
+  return res.json();
+};
+
+export const getAdminTicketDetail = async (id) => {
+  const res = await fetch(`${BASE}/admin/support/tickets/${id}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch ticket");
+  return res.json();
+};
+
 export const getAdminTickets = async (params = {}) => {
   const q = new URLSearchParams(params).toString();
   const res = await fetch(`${BASE}/admin/support/tickets${q ? `?${q}` : ""}`, { headers: authHeaders() });
