@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { register, login, getProfile } from "../services/authService.js";
 import { authenticate } from "../middleware/authenticate.js";
+import { getSupabase } from "../lib/supabase.js";
+import { notify, logActivity } from "../lib/notify.js";
 
 export const authRouter = Router();
 
@@ -14,6 +16,20 @@ authRouter.post("/auth/register", async (req, res, next) => {
       return res.status(400).json({ error: "validation", message: "password must be at least 8 characters" });
     }
     const result = await register({ name, email, password });
+
+    // Auto-create onboarding record + fire notification (non-blocking)
+    Promise.all([
+      getSupabase().from("onboarding").insert({
+        tenant_id: result.tenantId,
+        contact_email: email,
+        contact_name: name,
+        stage: "signed_up",
+        health_score: 10,
+      }),
+      notify({ type: "new_tenant", title: "New signup", body: `${name} (${email}) just created an account`, link: `/dashboard/customers` }),
+      logActivity({ action: "tenant_registered", entity: "tenant", entityId: result.tenantId, meta: { email, name } }),
+    ]).catch(() => null);
+
     res.status(201).json({ message: "Account created", ...result });
   } catch (err) {
     next(err);

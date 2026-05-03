@@ -108,6 +108,13 @@ const executeTool = async (toolName, input, tenantId) => {
 };
 
 export const runPlannerAgent = async ({ message, spreadsheetId, tenantId }) => {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return {
+      response: "AI features are not yet active. The Anthropic API key has not been configured. Everything else is ready — once the key is added, I'll be fully live.",
+      toolResults: [],
+      messages: [],
+    };
+  }
   const claude = getClaude();
   const messages = [
     {

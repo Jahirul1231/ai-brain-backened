@@ -34,6 +34,24 @@ export const getTenantDetail = async (id) => {
   return res.json();
 };
 
+export const getSystemStatus = async () => {
+  const res = await fetch(`${BASE}/system/status`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch status");
+  return res.json();
+};
+
+export const getNotifications = async () => {
+  const res = await fetch(`${BASE}/notifications`, { headers: authHeaders() });
+  if (!res.ok) return { notifications: [], unread: 0 };
+  return res.json();
+};
+
+export const markAllRead = async () => {
+  const res = await fetch(`${BASE}/notifications/read-all`, { method: "PATCH", headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed");
+  return res.json();
+};
+
 export const getChatHistory = async () => {
   const res = await fetch(`${BASE}/chat/history`, { headers: authHeaders() });
   if (!res.ok) throw new Error("Failed to load history");

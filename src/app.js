@@ -12,6 +12,9 @@ import { customersRouter } from "./routes/customers.js";
 import { trialsRouter } from "./routes/trials.js";
 import { financeRouter } from "./routes/finance.js";
 import { intelRouter } from "./routes/intel.js";
+import { systemRouter } from "./routes/system.js";
+import { notificationsRouter } from "./routes/notifications.js";
+import { authLimiter, chatLimiter, apiLimiter } from "./middleware/rateLimiter.js";
 import { logger } from "./lib/logger.js";
 
 const ALLOWED_ORIGINS = [
@@ -36,6 +39,7 @@ export const createApp = () => {
     next();
   });
 
+  app.use(apiLimiter);
   app.use(express.json({ limit: "1mb" }));
   app.use(requestId);
 
@@ -111,6 +115,9 @@ export const createApp = () => {
 </html>`);
   });
   app.use(healthRouter);
+  app.use("/auth/register", authLimiter);
+  app.use("/auth/login", authLimiter);
+  app.use("/chat", chatLimiter);
   app.use(authRouter);
   app.use(sheetsRouter);
   app.use(chatRouter);
@@ -121,6 +128,8 @@ export const createApp = () => {
   app.use(trialsRouter);
   app.use(financeRouter);
   app.use(intelRouter);
+  app.use(systemRouter);
+  app.use(notificationsRouter);
 
   app.use(notFound);
   app.use(errorHandler);

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authenticate } from "../middleware/authenticate.js";
 import { getAuthUrl, getTokensFromCode } from "../lib/googleAuth.js";
 import { getSupabase } from "../lib/supabase.js";
+import { logActivity } from "../lib/notify.js";
 import {
   readSheet,
   writeSheet,
@@ -37,6 +38,13 @@ sheetsRouter.get("/sheets/callback", authenticate, async (req, res, next) => {
       scope: tokens.scope,
       updated_at: new Date().toISOString(),
     }, { onConflict: "tenant_id" });
+
+    // Advance onboarding stage to "connected" (non-blocking)
+    getSupabase().from("onboarding")
+      .update({ stage: "connected", health_score: 40, updated_at: new Date().toISOString() })
+      .eq("tenant_id", req.tenant.id).then(() => null).catch(() => null);
+
+    logActivity({ action: "google_connected", entity: "tenant", entityId: req.tenant.id }).catch(() => null);
 
     res.json({ message: "Google Sheets connected successfully", scope: tokens.scope });
   } catch (err) {

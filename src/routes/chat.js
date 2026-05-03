@@ -5,6 +5,7 @@ import { debitTokens } from "../services/tokenService.js";
 import { runPlannerAgent } from "../agents/plannerAgent.js";
 import { runReviewerAgent } from "../agents/reviewerAgent.js";
 import { getSupabase } from "../lib/supabase.js";
+import { notify, logActivity } from "../lib/notify.js";
 import { logger } from "../lib/logger.js";
 
 export const chatRouter = Router();
@@ -63,7 +64,17 @@ chatRouter.post("/chat", authenticate, requireTokens(1), async (req, res, next) 
 
     logger.info("chat_complete", { tenantId, toolsUsed, tokensDebited: 1 });
 
-    res.json({ response: finalResponse, toolsUsed });
+    // Check remaining balance and warn if low
+    const { data: bal } = await getSupabase().from("token_balances").select("balance").eq("tenant_id", tenantId).single();
+    const remaining = bal?.balance ?? 0;
+
+    if (remaining === 5) {
+      notify({ type: "low_tokens", title: "Low token balance", body: `Tenant ${tenantId} has only ${remaining} tokens remaining`, link: `/dashboard/tenants` }).catch(() => null);
+    }
+
+    logActivity({ action: "chat", entity: "tenant", entityId: tenantId, meta: { toolsUsed } }).catch(() => null);
+
+    res.json({ response: finalResponse, toolsUsed, tokensRemaining: remaining });
   } catch (err) {
     next(err);
   }
