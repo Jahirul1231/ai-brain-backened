@@ -138,7 +138,7 @@ clientRouter.post("/client/sheets/verify", async (req, res, next) => {
     if (code === 403 || msg.toLowerCase().includes("permission") || msg.toLowerCase().includes("does not have")) {
       return res.status(403).json({
         error: "no_access",
-        message: `Sheet not shared. Please open the sheet → Share → add ${env.google.serviceAccountEmail} as Viewer → click Send.`,
+        message: `403: ${msg}`,
       });
     }
     if (code === 404 || msg.toLowerCase().includes("not found")) {
