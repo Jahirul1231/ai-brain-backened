@@ -17,6 +17,7 @@ import { notificationsRouter } from "./routes/notifications.js";
 import { clientRouter } from "./routes/client.js";
 import { supportRouter } from "./routes/support.js";
 import { channelsRouter } from "./routes/channels.js";
+import { cooRouter } from "./routes/coo.js";
 import { authLimiter, chatLimiter, apiLimiter } from "./middleware/rateLimiter.js";
 import { logger } from "./lib/logger.js";
 
@@ -138,6 +139,7 @@ export const createApp = () => {
   app.use(notificationsRouter);
   app.use(supportRouter);
   app.use(channelsRouter);
+  app.use(cooRouter);
 
   app.use(notFound);
   app.use(errorHandler);

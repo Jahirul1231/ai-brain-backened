@@ -210,6 +210,24 @@ export const replyTicket = async (id, message) => {
   return res.json();
 };
 
+// COO Agent
+export const getCOOHistory = async () => {
+  const res = await fetch(`${BASE}/coo/history`, { headers: authHeaders() });
+  if (!res.ok) return [];
+  return res.json();
+};
+
+export const sendCOOMessage = async (message) => {
+  const res = await fetch(`${BASE}/coo/chat`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ message }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "COO agent failed");
+  return data;
+};
+
 // Agent Channels
 export const getChannels = async () => {
   const res = await fetch(`${BASE}/channels`, { headers: authHeaders() });

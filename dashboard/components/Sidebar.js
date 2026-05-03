@@ -7,7 +7,7 @@ import { getNotifications, getChannels } from "../lib/api";
 const NAV = [
   { href: "/dashboard",               label: "Overview",         icon: "◈" },
   { href: "/dashboard/channels",      label: "Agent Channels",   icon: "◎", channelBadge: true },
-  { href: "/dashboard/brain",         label: "Master Brain",     icon: "◎" },
+  { href: "/dashboard/brain",         label: "COO Agent",        icon: "◎" },
   { href: "/dashboard/agents",        label: "Agent Network",    icon: "⬡" },
   { href: "/dashboard/tenants",       label: "Client Epicenter", icon: "▣" },
   { href: "/dashboard/support",       label: "Support Queue",    icon: "◇" },
