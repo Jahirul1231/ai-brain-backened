@@ -1,6 +1,7 @@
 import { getSupabase } from "../lib/supabase.js";
 
-const FREE_PLAN_TOKENS = 100;
+const FREE_PLAN_TOKENS = 500; // generous trial balance
+const TRIAL_DAYS = 7;
 
 export const register = async ({ name, email, password }) => {
   const supabase = getSupabase();
@@ -21,19 +22,27 @@ export const register = async ({ name, email, password }) => {
   const userId = authData.user.id;
   const slug = name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
   const businessSlug = slug;
+  const now = new Date();
+  const trialEndsAt = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
 
-  // 2. Create tenant
+  // 2. Create tenant with trial
   const { data: tenant, error: tenantErr } = await supabase
     .from("tenants")
-    .insert({ name, slug, business_slug: businessSlug })
+    .insert({
+      name, slug, business_slug: businessSlug,
+      trial_started_at: now.toISOString(),
+      trial_ends_at: trialEndsAt.toISOString(),
+      trial_active: true,
+      account_status: "active",
+    })
     .select()
     .single();
   if (tenantErr) throw tenantErr;
 
-  // 3. Create profile linking user ↔ tenant
+  // 3. Create profile linking user ↔ tenant (with full_name)
   const { error: profileErr } = await supabase
     .from("profiles")
-    .insert({ id: userId, tenant_id: tenant.id, role: "admin" });
+    .insert({ id: userId, tenant_id: tenant.id, role: "admin", full_name: name });
   if (profileErr) throw profileErr;
 
   // 4. Seed free token balance

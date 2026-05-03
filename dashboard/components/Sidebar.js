@@ -5,15 +5,16 @@ import { useEffect, useState } from "react";
 import { getNotifications } from "../lib/api";
 
 const NAV = [
-  { href: "/dashboard",               label: "Overview",       icon: "◈" },
-  { href: "/dashboard/brain",         label: "Master Brain",   icon: "◎" },
-  { href: "/dashboard/agents",        label: "Agent Network",  icon: "⬡" },
-  { href: "/dashboard/issues",        label: "Client Issues",  icon: "⚡" },
-  { href: "/dashboard/customers",     label: "Onboarding",     icon: "◉" },
-  { href: "/dashboard/trials",        label: "Trials & Sales", icon: "◈" },
-  { href: "/dashboard/finance",       label: "Finance",        icon: "◇" },
-  { href: "/dashboard/intel",         label: "Intelligence",   icon: "◎" },
-  { href: "/dashboard/tenants",       label: "Tenants",        icon: "▣" },
+  { href: "/dashboard",               label: "Overview",         icon: "◈" },
+  { href: "/dashboard/brain",         label: "Master Brain",     icon: "◎" },
+  { href: "/dashboard/agents",        label: "Agent Network",    icon: "⬡" },
+  { href: "/dashboard/tenants",       label: "Client Epicenter", icon: "▣" },
+  { href: "/dashboard/support",       label: "Support Queue",    icon: "◇", supportBadge: true },
+  { href: "/dashboard/issues",        label: "Client Issues",    icon: "⚡" },
+  { href: "/dashboard/customers",     label: "Onboarding",       icon: "◉" },
+  { href: "/dashboard/trials",        label: "Trials & Sales",   icon: "◈" },
+  { href: "/dashboard/finance",       label: "Finance",          icon: "⬡" },
+  { href: "/dashboard/intel",         label: "Intelligence",     icon: "◎" },
 ];
 
 const BOTTOM_NAV = [

@@ -129,3 +129,83 @@ export const grantTokens = async (id, amount) => {
   if (!res.ok) throw new Error("Failed to grant tokens");
   return res.json();
 };
+
+// CRM — Client Epicenter
+export const getClients = async (params = {}) => {
+  const q = new URLSearchParams(params).toString();
+  const res = await fetch(`${BASE}/admin/clients${q ? `?${q}` : ""}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch clients");
+  return res.json();
+};
+
+export const searchClients = async (query) => {
+  const res = await fetch(`${BASE}/admin/clients/search?q=${encodeURIComponent(query)}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Search failed");
+  return res.json();
+};
+
+export const getClientDetail = async (id) => {
+  const res = await fetch(`${BASE}/admin/clients/${id}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch client");
+  return res.json();
+};
+
+export const updateClient = async (id, data) => {
+  const res = await fetch(`${BASE}/admin/clients/${id}`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to update client");
+  return res.json();
+};
+
+export const extendTrial = async (id, days) => {
+  const res = await fetch(`${BASE}/admin/clients/${id}/extend-trial`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ days }),
+  });
+  if (!res.ok) throw new Error("Failed to extend trial");
+  return res.json();
+};
+
+export const exportClientsCSV = async () => {
+  const res = await fetch(`${BASE}/admin/clients/export/csv`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Export failed");
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `clients-${Date.now()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+// Support tickets — admin
+export const getAdminTickets = async (params = {}) => {
+  const q = new URLSearchParams(params).toString();
+  const res = await fetch(`${BASE}/admin/support/tickets${q ? `?${q}` : ""}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch tickets");
+  return res.json();
+};
+
+export const updateTicket = async (id, data) => {
+  const res = await fetch(`${BASE}/admin/support/tickets/${id}`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to update ticket");
+  return res.json();
+};
+
+export const replyTicket = async (id, message) => {
+  const res = await fetch(`${BASE}/admin/support/tickets/${id}/reply`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ message }),
+  });
+  if (!res.ok) throw new Error("Failed to send reply");
+  return res.json();
+};

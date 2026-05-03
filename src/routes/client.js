@@ -15,9 +15,9 @@ clientRouter.use(authenticate);
 clientRouter.get("/client/me", async (req, res, next) => {
   try {
     const sb = getSupabase();
-    const [profileRes, onboardingRes, balanceRes] = await Promise.all([
+    const [profileRes, onboardingRes, balanceRes, sheetsRes] = await Promise.all([
       sb.from("profiles")
-        .select("role, tenant_id, tenants(id, name, slug, business_slug, industry, subdomain_active, plan)")
+        .select("role, full_name, phone, city, tenant_id, tenants(id, name, slug, business_slug, industry, subdomain_active, plan, trial_active, trial_ends_at, account_status, max_sheets)")
         .eq("id", req.user.id)
         .single(),
       sb.from("onboarding_progress")
@@ -28,17 +28,109 @@ clientRouter.get("/client/me", async (req, res, next) => {
         .select("balance")
         .eq("tenant_id", req.user.tenantId)
         .single(),
+      sb.from("sheet_connections")
+        .select("id, spreadsheet_id, spreadsheet_name, spreadsheet_url, is_primary, connected_at, tab_count")
+        .eq("tenant_id", req.user.tenantId)
+        .order("connected_at", { ascending: true }),
     ]);
 
     if (profileRes.error) throw profileRes.error;
+    const tenant = profileRes.data.tenants;
+
+    // Compute trial state
+    const trialDaysLeft = tenant?.trial_ends_at
+      ? Math.max(0, Math.ceil((new Date(tenant.trial_ends_at) - new Date()) / (1000 * 60 * 60 * 24)))
+      : null;
 
     res.json({
       user: { id: req.user.id, email: req.user.email },
-      tenant: profileRes.data.tenants,
+      profile: { full_name: profileRes.data.full_name, phone: profileRes.data.phone, city: profileRes.data.city },
+      tenant,
       role: profileRes.data.role,
       onboarding: onboardingRes.data,
       tokenBalance: balanceRes.data?.balance ?? 0,
+      sheets: sheetsRes.data || [],
+      trial: { active: tenant?.trial_active, daysLeft: trialDaysLeft, endsAt: tenant?.trial_ends_at },
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ─── GET /client/sheets ─────────────────────────────────────── */
+clientRouter.get("/client/sheets", async (req, res, next) => {
+  try {
+    const { data, error } = await getSupabase()
+      .from("sheet_connections")
+      .select("*")
+      .eq("tenant_id", req.user.tenantId)
+      .order("connected_at", { ascending: true });
+    if (error) throw error;
+    const { data: tenant } = await getSupabase().from("tenants").select("max_sheets").eq("id", req.user.tenantId).single();
+    res.json({ sheets: data || [], maxSheets: tenant?.max_sheets ?? 4 });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ─── POST /client/sheets ────────────────────────────────────── */
+clientRouter.post("/client/sheets", async (req, res, next) => {
+  try {
+    const { spreadsheetId, spreadsheetName, spreadsheetUrl } = req.body;
+    if (!spreadsheetId) return res.status(400).json({ error: "spreadsheetId required" });
+
+    const sb = getSupabase();
+    const { data: tenant } = await sb.from("tenants").select("max_sheets").eq("id", req.user.tenantId).single();
+    const maxSheets = tenant?.max_sheets ?? 4;
+
+    const { data: existing } = await sb.from("sheet_connections").select("id").eq("tenant_id", req.user.tenantId);
+    if ((existing?.length || 0) >= maxSheets) {
+      return res.status(400).json({ error: "limit_reached", message: `Your plan allows up to ${maxSheets} connected spreadsheets. Remove one to add another.` });
+    }
+
+    // Extract ID from URL if full URL given
+    let sheetId = spreadsheetId;
+    const urlMatch = spreadsheetId.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    if (urlMatch) sheetId = urlMatch[1];
+
+    const isPrimary = (existing?.length || 0) === 0;
+    const { data, error } = await sb.from("sheet_connections")
+      .upsert({ tenant_id: req.user.tenantId, user_id: req.user.id, spreadsheet_id: sheetId, spreadsheet_name: spreadsheetName || sheetId, spreadsheet_url: spreadsheetUrl || `https://docs.google.com/spreadsheets/d/${sheetId}`, is_primary: isPrimary }, { onConflict: "tenant_id,spreadsheet_id" })
+      .select().single();
+    if (error) throw error;
+
+    await logActivity({ action: "sheet_connected", entity: "tenant", entityId: req.user.tenantId, meta: { sheetId } });
+    res.status(201).json(data);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ─── DELETE /client/sheets/:id ──────────────────────────────── */
+clientRouter.delete("/client/sheets/:id", async (req, res, next) => {
+  try {
+    const { error } = await getSupabase()
+      .from("sheet_connections")
+      .delete()
+      .eq("id", req.params.id)
+      .eq("tenant_id", req.user.tenantId);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ─── PATCH /client/profile ──────────────────────────────────── */
+clientRouter.patch("/client/profile", async (req, res, next) => {
+  try {
+    const allowed = ["full_name", "phone", "city"];
+    const updates = {};
+    for (const k of allowed) if (req.body[k] !== undefined) updates[k] = req.body[k];
+    if (Object.keys(updates).length === 0) return res.status(400).json({ error: "no fields to update" });
+    const { error } = await getSupabase().from("profiles").update(updates).eq("id", req.user.id);
+    if (error) throw error;
+    res.json({ ok: true });
   } catch (err) {
     next(err);
   }

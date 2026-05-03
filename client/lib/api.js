@@ -125,3 +125,55 @@ export const markUpdateRead = async (id) => {
   if (!res.ok) throw new Error("Failed to mark read");
   return res.json();
 };
+
+export const getSheets = async () => {
+  const res = await fetch(`${BASE}/client/sheets`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch sheets");
+  return res.json();
+};
+
+export const addSheet = async (spreadsheetId, spreadsheetName) => {
+  const urlMatch = spreadsheetId.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  const id = urlMatch ? urlMatch[1] : spreadsheetId;
+  const res = await fetch(`${BASE}/client/sheets`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ spreadsheetId: id, spreadsheetName, spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${id}` }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Failed to add sheet");
+  return data;
+};
+
+export const removeSheet = async (id) => {
+  const res = await fetch(`${BASE}/client/sheets/${id}`, { method: "DELETE", headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to remove sheet");
+  return res.json();
+};
+
+export const updateProfile = async (data) => {
+  const res = await fetch(`${BASE}/client/profile`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to update profile");
+  return res.json();
+};
+
+export const getTickets = async () => {
+  const res = await fetch(`${BASE}/support/tickets`, { headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to fetch tickets");
+  return res.json();
+};
+
+export const createTicket = async (subject, body) => {
+  const res = await fetch(`${BASE}/support/tickets`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ subject, body }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Failed to create ticket");
+  return data;
+};

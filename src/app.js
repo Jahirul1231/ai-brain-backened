@@ -15,6 +15,7 @@ import { intelRouter } from "./routes/intel.js";
 import { systemRouter } from "./routes/system.js";
 import { notificationsRouter } from "./routes/notifications.js";
 import { clientRouter } from "./routes/client.js";
+import { supportRouter } from "./routes/support.js";
 import { authLimiter, chatLimiter, apiLimiter } from "./middleware/rateLimiter.js";
 import { logger } from "./lib/logger.js";
 
@@ -134,6 +135,7 @@ export const createApp = () => {
   app.use(intelRouter);
   app.use(systemRouter);
   app.use(notificationsRouter);
+  app.use(supportRouter);
 
   app.use(notFound);
   app.use(errorHandler);
