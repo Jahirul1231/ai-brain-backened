@@ -134,7 +134,10 @@ export const grantTokens = async (id, amount) => {
 export const getClients = async (params = {}) => {
   const q = new URLSearchParams(params).toString();
   const res = await fetch(`${BASE}/admin/clients${q ? `?${q}` : ""}`, { headers: authHeaders() });
-  if (!res.ok) throw new Error("Failed to fetch clients");
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(`${res.status}: ${body.message || body.error || "Failed to fetch clients"}`);
+  }
   return res.json();
 };
 
