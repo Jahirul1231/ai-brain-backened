@@ -73,10 +73,9 @@ export const getTenantDetail = async (tenantId) => {
 export const grantTokens = async ({ tenantId, amount, adminEmail }) => {
   const supabase = getSupabase();
 
-  await supabase.from("token_balances").upsert(
-    { tenant_id: tenantId, balance: amount },
-    { onConflict: "tenant_id", ignoreDuplicates: false }
-  );
+  // Upsert balance record then increment
+  await supabase.from("token_balances")
+    .upsert({ tenant_id: tenantId, balance: 0 }, { onConflict: "tenant_id", ignoreDuplicates: true });
 
   const { data: current } = await supabase
     .from("token_balances")
@@ -84,17 +83,11 @@ export const grantTokens = async ({ tenantId, amount, adminEmail }) => {
     .eq("tenant_id", tenantId)
     .single();
 
-  await supabase.rpc("debit_tokens", {
-    p_tenant_id: tenantId,
-    p_amount: -amount,
-    p_description: `admin grant by ${adminEmail}`,
-  }).catch(() => null);
+  const newBalance = (current?.balance || 0) + amount;
 
-  await supabase.from("token_ledger").insert({
-    tenant_id: tenantId,
-    amount,
-    description: `admin grant by ${adminEmail}`,
-  });
+  await supabase.from("token_balances")
+    .update({ balance: newBalance })
+    .eq("tenant_id", tenantId);
 
-  return { newBalance: (current?.balance || 0) + amount };
+  return { newBalance };
 };

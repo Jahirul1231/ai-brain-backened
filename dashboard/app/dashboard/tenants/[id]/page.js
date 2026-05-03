@@ -60,7 +60,7 @@ export default function ClientDetailPage() {
 
   const handleGrant = async () => {
     if (!grantAmt) return;
-    setGranting(true); setMsg("");
+    setGranting(true); setMsg(""); setErr("");
     try {
       await grantTokens(id, parseInt(grantAmt, 10));
       setGrantAmt("");
@@ -70,7 +70,7 @@ export default function ClientDetailPage() {
     finally { setGranting(false); }
   };
 
-  if (err) return <div className="text-red-400 p-8">{err}</div>;
+  if (!data && err) return <div className="text-red-400 p-8">{err}</div>;
   if (!data) return <div className="flex items-center justify-center h-64"><div className="w-2 h-2 bg-[#00c853] rounded-full animate-pulse" /></div>;
 
   // API returns the tenant fields at root level, enriched data as separate keys
