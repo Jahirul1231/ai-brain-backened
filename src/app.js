@@ -124,6 +124,7 @@ export const createApp = () => {
   app.use(authRouter);
   app.use(sheetsRouter);
   app.use(chatRouter);
+  app.use(clientRouter);
   app.use(adminRouter);
   app.use(agentsRouter);
   app.use(issuesRouter);
@@ -133,7 +134,6 @@ export const createApp = () => {
   app.use(intelRouter);
   app.use(systemRouter);
   app.use(notificationsRouter);
-  app.use(clientRouter);
 
   app.use(notFound);
   app.use(errorHandler);
