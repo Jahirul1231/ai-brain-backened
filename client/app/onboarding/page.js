@@ -243,84 +243,101 @@ export default function OnboardingPage() {
           {/* Step 3: Connect Sheets */}
           {step === 3 && (
             <div>
-              <h2 className="text-xl font-bold text-white mb-1">Connect your Google Sheet</h2>
-              <p className="text-[#555] text-sm mb-5">Two steps — share access, then paste your link.</p>
+              <h2 className="text-xl font-bold text-white mb-1">Add your data</h2>
+              <p className="text-[#555] text-sm mb-5">
+                Just like adding a teammate to your sheet — takes 30 seconds.
+              </p>
 
-              {/* Step 1: Share with service account */}
+              {/* Step 1: Invite AI as viewer */}
               {serviceAccountEmail && (
-                <div className="bg-[#0a0a0a] border border-[#1e1e1e] rounded-xl p-4 mb-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="w-5 h-5 rounded-full bg-[#00c853]/20 border border-[#00c853]/40 text-[#00c853] text-xs flex items-center justify-center font-bold">1</span>
-                    <span className="text-sm font-semibold text-white">Share your sheet with this email</span>
+                <div className="bg-[#0a0a0a] border border-[#1e1e1e] rounded-xl p-4 mb-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="w-5 h-5 rounded-full bg-[#00c853]/20 border border-[#00c853]/40 text-[#00c853] text-xs flex items-center justify-center font-bold shrink-0">1</span>
+                    <span className="text-sm font-semibold text-white">Invite the AI as a viewer</span>
                   </div>
-                  <p className="text-xs text-[#555] mb-3 ml-7">Open your Google Sheet → Share → paste this email → set role to <strong className="text-[#888]">Viewer</strong></p>
-                  <div className="ml-7 flex items-center gap-2 bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2">
-                    <span className="text-[#00c853] font-mono text-xs flex-1 break-all">{serviceAccountEmail}</span>
+                  <p className="text-xs text-[#444] ml-7 mb-3">
+                    Open your Google Sheet → click <strong className="text-[#666]">Share</strong> → paste this email → keep role as <strong className="text-[#666]">Viewer</strong> → click Send.
+                  </p>
+                  <div className="ml-7 flex items-center gap-2 bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2.5">
+                    <span className="text-[#00c853] font-mono text-xs flex-1 break-all select-all">{serviceAccountEmail}</span>
                     <button
                       type="button"
                       onClick={copyEmail}
-                      className="text-xs text-[#555] hover:text-white transition shrink-0 border border-[#2a2a2a] hover:border-[#444] px-2 py-0.5 rounded"
+                      className={`text-xs shrink-0 border px-2.5 py-1 rounded-md transition font-medium ${copied ? "border-[#00c853]/40 text-[#00c853]" : "border-[#2a2a2a] text-[#555] hover:text-white hover:border-[#444]"}`}
                     >
-                      {copied ? "✓ Copied" : "Copy"}
+                      {copied ? "✓ Copied!" : "Copy"}
                     </button>
                   </div>
+                  <p className="text-xs text-[#333] ml-7 mt-2">
+                    Think of it as inviting a read-only assistant — it can only see, not edit.
+                  </p>
                 </div>
               )}
 
-              {/* Step 2: Paste URL */}
-              <div className="bg-[#0a0a0a] border border-[#1e1e1e] rounded-xl p-4 mb-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-5 h-5 rounded-full bg-[#00c853]/20 border border-[#00c853]/40 text-[#00c853] text-xs flex items-center justify-center font-bold">{serviceAccountEmail ? "2" : "1"}</span>
-                  <span className="text-sm font-semibold text-white">Paste your Google Sheet URL</span>
+              {/* Step 2: Paste link */}
+              <div className="bg-[#0a0a0a] border border-[#1e1e1e] rounded-xl p-4 mb-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="w-5 h-5 rounded-full bg-[#00c853]/20 border border-[#00c853]/40 text-[#00c853] text-xs flex items-center justify-center font-bold shrink-0">
+                    {serviceAccountEmail ? "2" : "1"}
+                  </span>
+                  <span className="text-sm font-semibold text-white">Paste your sheet link</span>
                 </div>
+                <p className="text-xs text-[#444] ml-7 mb-2">Copy the URL from your browser while the sheet is open.</p>
                 <input
                   type="text"
                   value={sheetUrl}
                   onChange={(e) => { setSheetUrl(e.target.value); setVerifyResult(null); setVerifyError(""); }}
-                  className="w-full ml-0 bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#444] focus:outline-none focus:border-[#00c853]/50 transition mt-2"
+                  className="w-full bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#333] focus:outline-none focus:border-[#00c853]/50 transition"
                   placeholder="https://docs.google.com/spreadsheets/d/..."
                 />
               </div>
 
-              {/* Verify error */}
+              {/* Error */}
               {verifyError && (
-                <div className="bg-red-400/10 border border-red-400/20 text-red-400 text-sm px-3 py-2 rounded-lg mb-3">
+                <div className="bg-red-400/10 border border-red-400/20 text-red-400 text-sm px-3 py-2.5 rounded-xl mb-3 leading-relaxed">
                   {verifyError}
-                </div>
-              )}
-
-              {/* Success state */}
-              {verifyResult?.ok && (
-                <div className="bg-[#00c853]/5 border border-[#00c853]/20 rounded-xl p-3 mb-3">
-                  <div className="flex items-center gap-2 text-[#00c853] text-sm font-semibold mb-1">
-                    <span>✓</span>
-                    <span>{verifyResult.manual ? "Sheet saved" : "Sheet connected"}</span>
-                  </div>
-                  {verifyResult.tabs?.length > 0 && (
-                    <p className="text-xs text-[#555]">
-                      {verifyResult.tabs.length} tab{verifyResult.tabs.length !== 1 ? "s" : ""} found: {verifyResult.tabs.map((t) => t.title).join(", ")}
+                  {verifyError.includes("share") && (
+                    <p className="text-xs text-red-300/70 mt-1">
+                      Make sure you shared with the exact email above and clicked Send in Google Sheets.
                     </p>
                   )}
                 </div>
               )}
 
-              {/* Verify button */}
+              {/* Success */}
+              {verifyResult?.ok && (
+                <div className="bg-[#00c853]/5 border border-[#00c853]/20 rounded-xl p-4 mb-3">
+                  <div className="flex items-center gap-2 text-[#00c853] font-semibold mb-1">
+                    <span className="text-base">✓</span>
+                    <span className="text-sm">Your data is connected!</span>
+                  </div>
+                  {verifyResult.tabs?.length > 0 ? (
+                    <p className="text-xs text-[#555]">
+                      Found <strong className="text-[#888]">{verifyResult.tabs.length} sheet{verifyResult.tabs.length !== 1 ? "s" : ""}</strong>: {verifyResult.tabs.map((t) => t.title).join(", ")}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-[#555]">Sheet saved — your AI can now read your data.</p>
+                  )}
+                </div>
+              )}
+
+              {/* Connect button */}
               {!verifyResult?.ok && (
                 <button
                   type="button"
                   onClick={handleVerify}
                   disabled={verifying || !sheetUrl.trim()}
-                  className="w-full border border-[#00c853]/40 text-[#00c853] hover:bg-[#00c853]/10 font-semibold py-2.5 rounded-xl text-sm transition disabled:opacity-40 disabled:cursor-not-allowed mb-3"
+                  className="w-full bg-[#00c853]/10 border border-[#00c853]/30 hover:bg-[#00c853]/20 text-[#00c853] font-semibold py-3 rounded-xl text-sm transition disabled:opacity-40 disabled:cursor-not-allowed mb-3"
                 >
-                  {verifying ? "Verifying access…" : "Verify & Connect"}
+                  {verifying ? "Checking access…" : "Connect my sheet →"}
                 </button>
               )}
 
               {slug && (
-                <div className="bg-[#00c853]/5 border border-[#00c853]/20 rounded-xl p-3 text-sm">
-                  <span className="text-[#555]">Your subdomain: </span>
-                  <span className="text-[#00c853] font-mono font-semibold">{slug}.reportude.com</span>
-                  <span className="text-[#444] text-xs ml-2">(activates after setup)</span>
+                <div className="bg-[#0a0a0a] border border-[#1e1e1e] rounded-xl p-3 text-sm flex items-center gap-2">
+                  <span className="text-[#333]">◈</span>
+                  <span className="text-[#444]">Your portal:</span>
+                  <span className="text-[#00c853] font-mono text-xs font-semibold">{slug}.reportude.com</span>
                 </div>
               )}
             </div>
