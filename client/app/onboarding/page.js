@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getMe, updateOnboarding, submitConsent, configureSubdomain } from "../../lib/api";
+import { getMe, updateOnboarding, submitConsent, configureSubdomain, verifySheet, addSheet } from "../../lib/api";
 
 const STEPS = [
   { n: 1, label: "Welcome" },
@@ -31,8 +31,12 @@ export default function OnboardingPage() {
   const [useCase, setUseCase] = useState("");
   const [slug, setSlug] = useState("");
   // Step 3
-  const [sheetId, setSheetId] = useState("");
-  const [sheetsShared, setSheetsShared] = useState(false);
+  const [sheetUrl, setSheetUrl] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState(null); // { ok, tabs, spreadsheetId, not_configured }
+  const [verifyError, setVerifyError] = useState("");
+  const [serviceAccountEmail, setServiceAccountEmail] = useState("");
+  const [copied, setCopied] = useState(false);
   // Step 4
   const [consentChecked, setConsentChecked] = useState(false);
 
@@ -49,7 +53,7 @@ export default function OnboardingPage() {
         if (ob?.industry) setIndustry(ob.industry);
         if (ob?.use_case) setUseCase(ob.use_case);
         if (data.tenant?.business_slug) setSlug(data.tenant.business_slug);
-        setSheetsShared(ob?.sheets_shared || false);
+        if (data.serviceAccountEmail) setServiceAccountEmail(data.serviceAccountEmail);
       })
       .catch(() => router.replace("/login"))
       .finally(() => setLoading(false));
@@ -67,6 +71,38 @@ export default function OnboardingPage() {
     }
   };
 
+  const handleVerify = async () => {
+    if (!sheetUrl.trim()) return setVerifyError("Please paste your Google Sheet URL");
+    setVerifying(true);
+    setVerifyError("");
+    setVerifyResult(null);
+    try {
+      const result = await verifySheet(sheetUrl.trim());
+      if (result.not_configured) {
+        // Service account not configured — allow manual save
+        const saved = await addSheet(sheetUrl.trim(), "My Spreadsheet", 0);
+        setVerifyResult({ ok: true, manual: true, spreadsheetId: result.spreadsheetId, tabs: [] });
+      } else {
+        // Verified — save with tab info
+        const name = sheetUrl.trim().split("/").slice(-2, -1)[0] || "My Spreadsheet";
+        await addSheet(sheetUrl.trim(), name, result.tabCount);
+        setVerifyResult(result);
+      }
+    } catch (err) {
+      setVerifyError(err.message);
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const copyEmail = () => {
+    if (!serviceAccountEmail) return;
+    navigator.clipboard.writeText(serviceAccountEmail).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   const goNext = async () => {
     if (step === 2) {
       if (!businessName || !industry) return setError("Please fill in all fields");
@@ -76,15 +112,9 @@ export default function OnboardingPage() {
       setSlug(autoSlug);
     }
     if (step === 3) {
-      if (sheetsShared) {
-        await save({ step: 4, sheets_shared: true });
-        // Try to configure subdomain
-        if (slug) {
-          try { await configureSubdomain(slug); } catch {}
-        }
-      } else {
-        return setError("Please share at least one spreadsheet before continuing");
-      }
+      if (!verifyResult) return setError("Please verify your spreadsheet before continuing");
+      await save({ step: 4, sheets_shared: true });
+      if (slug) { try { await configureSubdomain(slug); } catch {} }
     }
     if (step === 4) {
       if (!consentChecked) return setError("You must accept the terms to continue");
@@ -100,7 +130,6 @@ export default function OnboardingPage() {
     setStep((s) => s + 1);
   };
 
-  const googleConnectUrl = `https://ai-brain-backened-production.up.railway.app/sheets/connect?token=${typeof window !== "undefined" ? localStorage.getItem("token") || "" : ""}`;
 
   if (loading) {
     return (
@@ -214,39 +243,78 @@ export default function OnboardingPage() {
           {/* Step 3: Connect Sheets */}
           {step === 3 && (
             <div>
-              <h2 className="text-xl font-bold text-white mb-1">Connect your data</h2>
-              <p className="text-[#555] text-sm mb-6">Share the Google Sheets you want Reportude AI to analyze</p>
+              <h2 className="text-xl font-bold text-white mb-1">Connect your Google Sheet</h2>
+              <p className="text-[#555] text-sm mb-5">Two steps — share access, then paste your link.</p>
 
+              {/* Step 1: Share with service account */}
+              {serviceAccountEmail && (
+                <div className="bg-[#0a0a0a] border border-[#1e1e1e] rounded-xl p-4 mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-5 h-5 rounded-full bg-[#00c853]/20 border border-[#00c853]/40 text-[#00c853] text-xs flex items-center justify-center font-bold">1</span>
+                    <span className="text-sm font-semibold text-white">Share your sheet with this email</span>
+                  </div>
+                  <p className="text-xs text-[#555] mb-3 ml-7">Open your Google Sheet → Share → paste this email → set role to <strong className="text-[#888]">Viewer</strong></p>
+                  <div className="ml-7 flex items-center gap-2 bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2">
+                    <span className="text-[#00c853] font-mono text-xs flex-1 break-all">{serviceAccountEmail}</span>
+                    <button
+                      type="button"
+                      onClick={copyEmail}
+                      className="text-xs text-[#555] hover:text-white transition shrink-0 border border-[#2a2a2a] hover:border-[#444] px-2 py-0.5 rounded"
+                    >
+                      {copied ? "✓ Copied" : "Copy"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Paste URL */}
               <div className="bg-[#0a0a0a] border border-[#1e1e1e] rounded-xl p-4 mb-4">
-                <h3 className="text-sm font-semibold text-white mb-2">Step 1 — Connect Google account</h3>
-                <p className="text-xs text-[#555] mb-3">We need read (and optional write) access to your spreadsheets.</p>
-                <a
-                  href={googleConnectUrl}
-                  target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 bg-white text-black text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-100 transition"
-                >
-                  <span>🔗</span> Connect Google Sheets
-                </a>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-5 h-5 rounded-full bg-[#00c853]/20 border border-[#00c853]/40 text-[#00c853] text-xs flex items-center justify-center font-bold">{serviceAccountEmail ? "2" : "1"}</span>
+                  <span className="text-sm font-semibold text-white">Paste your Google Sheet URL</span>
+                </div>
+                <input
+                  type="text"
+                  value={sheetUrl}
+                  onChange={(e) => { setSheetUrl(e.target.value); setVerifyResult(null); setVerifyError(""); }}
+                  className="w-full ml-0 bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#444] focus:outline-none focus:border-[#00c853]/50 transition mt-2"
+                  placeholder="https://docs.google.com/spreadsheets/d/..."
+                />
               </div>
 
-              <div className="bg-[#0a0a0a] border border-[#1e1e1e] rounded-xl p-4 mb-6">
-                <h3 className="text-sm font-semibold text-white mb-2">Step 2 — Share your spreadsheet</h3>
-                <p className="text-xs text-[#555] mb-3">Paste the Google Sheets URL or ID you want to connect:</p>
-                <input
-                  type="text" value={sheetId}
-                  onChange={(e) => setSheetId(e.target.value)}
-                  className="w-full bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#333] focus:outline-none focus:border-[#00c853]/50 transition mb-3"
-                  placeholder="https://docs.google.com/spreadsheets/d/…"
-                />
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox" checked={sheetsShared}
-                    onChange={(e) => setSheetsShared(e.target.checked)}
-                    className="w-4 h-4 accent-[#00c853]"
-                  />
-                  <span className="text-sm text-[#888]">I&apos;ve shared my spreadsheet and connected Google</span>
-                </label>
-              </div>
+              {/* Verify error */}
+              {verifyError && (
+                <div className="bg-red-400/10 border border-red-400/20 text-red-400 text-sm px-3 py-2 rounded-lg mb-3">
+                  {verifyError}
+                </div>
+              )}
+
+              {/* Success state */}
+              {verifyResult?.ok && (
+                <div className="bg-[#00c853]/5 border border-[#00c853]/20 rounded-xl p-3 mb-3">
+                  <div className="flex items-center gap-2 text-[#00c853] text-sm font-semibold mb-1">
+                    <span>✓</span>
+                    <span>{verifyResult.manual ? "Sheet saved" : "Sheet connected"}</span>
+                  </div>
+                  {verifyResult.tabs?.length > 0 && (
+                    <p className="text-xs text-[#555]">
+                      {verifyResult.tabs.length} tab{verifyResult.tabs.length !== 1 ? "s" : ""} found: {verifyResult.tabs.map((t) => t.title).join(", ")}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Verify button */}
+              {!verifyResult?.ok && (
+                <button
+                  type="button"
+                  onClick={handleVerify}
+                  disabled={verifying || !sheetUrl.trim()}
+                  className="w-full border border-[#00c853]/40 text-[#00c853] hover:bg-[#00c853]/10 font-semibold py-2.5 rounded-xl text-sm transition disabled:opacity-40 disabled:cursor-not-allowed mb-3"
+                >
+                  {verifying ? "Verifying access…" : "Verify & Connect"}
+                </button>
+              )}
 
               {slug && (
                 <div className="bg-[#00c853]/5 border border-[#00c853]/20 rounded-xl p-3 text-sm">

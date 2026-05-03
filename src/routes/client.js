@@ -5,6 +5,8 @@ import { chatLimiter } from "../middleware/rateLimiter.js";
 import { runPlannerAgent } from "../agents/plannerAgent.js";
 import { runReviewerAgent } from "../agents/reviewerAgent.js";
 import { notify, logActivity } from "../lib/notify.js";
+import { listSheets } from "../services/sheetsService.js";
+import { env } from "../config/env.js";
 
 export const clientRouter = Router();
 
@@ -51,6 +53,7 @@ clientRouter.get("/client/me", async (req, res, next) => {
       tokenBalance: balanceRes.data?.balance ?? 0,
       sheets: sheetsRes.data || [],
       trial: { active: tenant?.trial_active, daysLeft: trialDaysLeft, endsAt: tenant?.trial_ends_at },
+      serviceAccountEmail: env.google.serviceAccountEmail || null,
     });
   } catch (err) {
     next(err);
@@ -76,7 +79,7 @@ clientRouter.get("/client/sheets", async (req, res, next) => {
 /* ─── POST /client/sheets ────────────────────────────────────── */
 clientRouter.post("/client/sheets", async (req, res, next) => {
   try {
-    const { spreadsheetId, spreadsheetName, spreadsheetUrl } = req.body;
+    const { spreadsheetId, spreadsheetName, spreadsheetUrl, tabCount } = req.body;
     if (!spreadsheetId) return res.status(400).json({ error: "spreadsheetId required" });
 
     const sb = getSupabase();
@@ -95,13 +98,40 @@ clientRouter.post("/client/sheets", async (req, res, next) => {
 
     const isPrimary = (existing?.length || 0) === 0;
     const { data, error } = await sb.from("sheet_connections")
-      .upsert({ tenant_id: req.user.tenantId, user_id: req.user.id, spreadsheet_id: sheetId, spreadsheet_name: spreadsheetName || sheetId, spreadsheet_url: spreadsheetUrl || `https://docs.google.com/spreadsheets/d/${sheetId}`, is_primary: isPrimary }, { onConflict: "tenant_id,spreadsheet_id" })
+      .upsert({ tenant_id: req.user.tenantId, user_id: req.user.id, spreadsheet_id: sheetId, spreadsheet_name: spreadsheetName || sheetId, spreadsheet_url: spreadsheetUrl || `https://docs.google.com/spreadsheets/d/${sheetId}`, is_primary: isPrimary, tab_count: tabCount || 0 }, { onConflict: "tenant_id,spreadsheet_id" })
       .select().single();
     if (error) throw error;
 
     await logActivity({ action: "sheet_connected", entity: "tenant", entityId: req.user.tenantId, meta: { sheetId } });
     res.status(201).json(data);
   } catch (err) {
+    next(err);
+  }
+});
+
+/* ─── POST /client/sheets/verify ─────────────────────────────── */
+clientRouter.post("/client/sheets/verify", async (req, res, next) => {
+  try {
+    const { spreadsheetId } = req.body;
+    if (!spreadsheetId) return res.status(400).json({ error: "spreadsheetId required" });
+
+    let sheetId = spreadsheetId;
+    const urlMatch = spreadsheetId.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    if (urlMatch) sheetId = urlMatch[1];
+
+    if (!env.google.serviceAccountEmail || !env.google.serviceAccountKey) {
+      return res.json({ ok: false, not_configured: true, spreadsheetId: sheetId });
+    }
+
+    const tabs = await listSheets({ tenantId: req.user.tenantId, spreadsheetId: sheetId });
+    res.json({ ok: true, spreadsheetId: sheetId, tabs, tabCount: tabs.length });
+  } catch (err) {
+    if (err.code === 403 || err.status === 403 || err.message?.toLowerCase().includes("permission") || err.message?.toLowerCase().includes("not found")) {
+      return res.status(403).json({
+        error: "no_access",
+        message: `Cannot access this sheet. Please share it with ${env.google.serviceAccountEmail} (Viewer role) and try again.`,
+      });
+    }
     next(err);
   }
 });

@@ -1,6 +1,7 @@
 import { google } from "googleapis";
 import { getSupabase } from "../lib/supabase.js";
-import { createAuthedClient } from "../lib/googleAuth.js";
+import { createAuthedClient, createServiceAccountClient } from "../lib/googleAuth.js";
+import { env } from "../config/env.js";
 
 const getConnection = async (tenantId) => {
   const supabase = getSupabase();
@@ -20,6 +21,10 @@ const getConnection = async (tenantId) => {
 };
 
 const getSheetsClient = async (tenantId) => {
+  if (env.google.serviceAccountEmail && env.google.serviceAccountKey) {
+    const auth = createServiceAccountClient();
+    return google.sheets({ version: "v4", auth });
+  }
   const tokens = await getConnection(tenantId);
   const auth = createAuthedClient(tokens);
   return google.sheets({ version: "v4", auth });

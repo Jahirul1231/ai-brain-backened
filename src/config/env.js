@@ -27,6 +27,8 @@ export const env = {
     clientId: process.env.GOOGLE_CLIENT_ID || "",
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     redirectUri: process.env.GOOGLE_REDIRECT_URI || "",
+    serviceAccountEmail: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || "",
+    serviceAccountKey: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || "",
   },
 };
 

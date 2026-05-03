@@ -1,6 +1,20 @@
 import { google } from "googleapis";
 import { env } from "../config/env.js";
 
+export const createServiceAccountClient = () => {
+  const { serviceAccountEmail: email, serviceAccountKey: key } = env.google;
+  if (!email || !key) throw new Error("Service account not configured");
+  return new google.auth.JWT(
+    email,
+    null,
+    key.replace(/\\n/g, "\n"),
+    [
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive.readonly",
+    ]
+  );
+};
+
 export const createOAuthClient = () =>
   new google.auth.OAuth2(
     env.google.clientId,

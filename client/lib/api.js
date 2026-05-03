@@ -23,7 +23,7 @@ export const register = async (name, email, password) => {
     body: JSON.stringify({ name, email, password }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || data.message || "Registration failed");
+  if (!res.ok) throw new Error(data.message || data.error || "Registration failed");
   return data;
 };
 
@@ -132,13 +132,24 @@ export const getSheets = async () => {
   return res.json();
 };
 
-export const addSheet = async (spreadsheetId, spreadsheetName) => {
+export const verifySheet = async (spreadsheetId) => {
+  const res = await fetch(`${BASE}/client/sheets/verify`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ spreadsheetId }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Verification failed");
+  return data;
+};
+
+export const addSheet = async (spreadsheetId, spreadsheetName, tabCount = 0) => {
   const urlMatch = spreadsheetId.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
   const id = urlMatch ? urlMatch[1] : spreadsheetId;
   const res = await fetch(`${BASE}/client/sheets`, {
     method: "POST",
     headers: authHeaders(),
-    body: JSON.stringify({ spreadsheetId: id, spreadsheetName, spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${id}` }),
+    body: JSON.stringify({ spreadsheetId: id, spreadsheetName, spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${id}`, tabCount }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || "Failed to add sheet");
