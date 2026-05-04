@@ -1,4 +1,14 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(node scripts/run-migration-006.js)",
+      "Bash(curl -s \"https://ai-brain-backened-production.up.railway.app/health\")",
+      "Bash(curl -s -X POST https://ai-brain-backened-production.up.railway.app/auth/register *)",
+      "Bash(curl -s -X POST https://ai-brain-backened-production.up.railway.app/auth/login *)",
+      "Bash(curl -s https://ai-brain-backened-production.up.railway.app/* *)"
+    ]
+  },
   "mcpServers": {
     "supabase": {
       "type": "http",

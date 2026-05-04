@@ -27,7 +27,32 @@ export default function ClientSettingsPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMsg, setProfileMsg] = useState("");
 
-  const googleConnectUrl = `https://ai-brain-backened-production.up.railway.app/sheets/connect?token=${typeof window !== "undefined" ? localStorage.getItem("token") || "" : ""}`;
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [connectingGoogle, setConnectingGoogle] = useState(false);
+
+  const openGoogleAuth = () => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") || "" : "";
+    const popup = window.open(
+      `https://ai-brain-backened-production.up.railway.app/sheets/connect?token=${encodeURIComponent(token)}`,
+      "google_auth",
+      "width=520,height=620,scrollbars=yes,resizable=yes"
+    );
+    setConnectingGoogle(true);
+    const onMessage = (e) => {
+      if (e.data === "google_connected") {
+        setGoogleConnected(true);
+        setConnectingGoogle(false);
+        window.removeEventListener("message", onMessage);
+      } else if (e.data === "google_error") {
+        setConnectingGoogle(false);
+        window.removeEventListener("message", onMessage);
+      }
+    };
+    window.addEventListener("message", onMessage);
+    const timer = setInterval(() => {
+      if (popup?.closed) { setConnectingGoogle(false); clearInterval(timer); }
+    }, 500);
+  };
 
   const loadSheets = () => getSheets().then(({ sheets: s, maxSheets: m }) => { setSheets(s || []); setMaxSheets(m); }).catch(() => {});
 
@@ -37,6 +62,7 @@ export default function ClientSettingsPage() {
         setMe(data);
         setSlug(data.tenant?.business_slug || "");
         setProfile({ full_name: data.profile?.full_name || "", phone: data.profile?.phone || "", city: data.profile?.city || "" });
+        if (data.googleConnected) setGoogleConnected(true);
         setSheets(s || []);
         setMaxSheets(m);
       })
@@ -160,12 +186,34 @@ export default function ClientSettingsPage() {
           <h2 className="text-sm font-semibold text-[#666] uppercase tracking-widest">Connected Sheets</h2>
           <span className="text-xs text-[#444]">{sheets.length} / {maxSheets}</span>
         </div>
-        <p className="text-[#444] text-xs mb-4">Your plan allows {maxSheets} spreadsheets. Connect Google first, then paste the sheet URL.</p>
+        <p className="text-[#444] text-xs mb-4">Your plan allows {maxSheets} spreadsheets.</p>
 
-        <a href={googleConnectUrl} target="_blank" rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 bg-white text-black text-xs font-semibold px-3 py-2 rounded-lg hover:bg-gray-100 transition mb-4">
-          🔗 Connect / Reconnect Google Account
-        </a>
+        <div className="flex items-center gap-3 mb-4">
+          {googleConnected ? (
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1.5 text-xs text-[#00c853] bg-[#00c853]/10 border border-[#00c853]/20 px-3 py-1.5 rounded-lg font-medium">
+                <span>✓</span> Google connected
+              </span>
+              <button onClick={openGoogleAuth} className="text-xs text-[#444] hover:text-white transition">
+                Reconnect
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={openGoogleAuth}
+              disabled={connectingGoogle}
+              className="flex items-center gap-2 bg-white hover:bg-gray-50 text-[#111] text-xs font-semibold px-3 py-2 rounded-lg transition disabled:opacity-60"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              {connectingGoogle ? "Waiting…" : "Connect Google Account"}
+            </button>
+          )}
+        </div>
 
         {sheets.length > 0 && (
           <div className="space-y-2 mb-4">

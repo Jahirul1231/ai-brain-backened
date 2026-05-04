@@ -21,13 +21,25 @@ const getConnection = async (tenantId) => {
 };
 
 const getSheetsClient = async (tenantId) => {
+  // Prefer per-tenant OAuth tokens — no manual sheet sharing required
+  const { data: oauthConn } = await getSupabase()
+    .from("google_connections")
+    .select("access_token, refresh_token, expiry_date")
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+
+  if (oauthConn?.access_token) {
+    const auth = createAuthedClient(oauthConn);
+    return google.sheets({ version: "v4", auth });
+  }
+
+  // Fall back to service account (requires manual sheet sharing)
   if (env.google.serviceAccountJson || (env.google.serviceAccountEmail && env.google.serviceAccountKey)) {
     const auth = createServiceAccountClient();
     return google.sheets({ version: "v4", auth });
   }
-  const tokens = await getConnection(tenantId);
-  const auth = createAuthedClient(tokens);
-  return google.sheets({ version: "v4", auth });
+
+  throw new Error("No Google authentication configured for this account. Please connect your Google account.");
 };
 
 export const readSheet = async ({ tenantId, spreadsheetId, range }) => {

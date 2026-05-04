@@ -18,7 +18,7 @@ clientRouter.use(authenticate);
 clientRouter.get("/client/me", async (req, res, next) => {
   try {
     const sb = getSupabase();
-    const [profileRes, onboardingRes, balanceRes, sheetsRes] = await Promise.all([
+    const [profileRes, onboardingRes, balanceRes, sheetsRes, googleRes] = await Promise.all([
       sb.from("profiles")
         .select("role, full_name, phone, city, tenant_id, tenants(id, name, slug, business_slug, industry, subdomain_active, plan, trial_active, trial_ends_at, account_status, max_sheets)")
         .eq("id", req.user.id)
@@ -35,6 +35,10 @@ clientRouter.get("/client/me", async (req, res, next) => {
         .select("id, spreadsheet_id, spreadsheet_name, spreadsheet_url, is_primary, connected_at, tab_count")
         .eq("tenant_id", req.user.tenantId)
         .order("connected_at", { ascending: true }),
+      sb.from("google_connections")
+        .select("updated_at")
+        .eq("tenant_id", req.user.tenantId)
+        .maybeSingle(),
     ]);
 
     if (profileRes.error) throw profileRes.error;
@@ -54,6 +58,7 @@ clientRouter.get("/client/me", async (req, res, next) => {
       tokenBalance: balanceRes.data?.balance ?? 0,
       sheets: sheetsRes.data || [],
       trial: { active: tenant?.trial_active, daysLeft: trialDaysLeft, endsAt: tenant?.trial_ends_at },
+      googleConnected: !!googleRes.data,
       serviceAccountEmail: env.google.serviceAccountEmail || null,
     });
   } catch (err) {
