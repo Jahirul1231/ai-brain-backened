@@ -77,6 +77,12 @@ export const getChatHistory = async () => {
   return res.json();
 };
 
+export const clearChatHistory = async () => {
+  const res = await fetch(`${BASE}/client/chat/history`, { method: "DELETE", headers: authHeaders() });
+  if (!res.ok) throw new Error("Failed to clear history");
+  return res.json();
+};
+
 export const sendMessage = async (message, spreadsheetId, confirmed = false, sheetIds = []) => {
   const res = await fetch(`${BASE}/client/chat`, {
     method: "POST",

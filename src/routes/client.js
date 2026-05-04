@@ -596,9 +596,23 @@ clientRouter.get("/client/chat/history", async (req, res, next) => {
       .select("role, content, created_at")
       .eq("tenant_id", req.user.tenantId)
       .order("created_at", { ascending: true })
-      .limit(100);
+      .limit(200);
     if (error) throw error;
     res.json({ history: data });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ─── DELETE /client/chat/history ────────────────────────────── */
+clientRouter.delete("/client/chat/history", async (req, res, next) => {
+  try {
+    const { error } = await getSupabase()
+      .from("chat_history")
+      .delete()
+      .eq("tenant_id", req.user.tenantId);
+    if (error) throw error;
+    res.json({ ok: true });
   } catch (err) {
     next(err);
   }
