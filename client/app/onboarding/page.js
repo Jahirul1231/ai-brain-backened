@@ -74,9 +74,8 @@ export default function OnboardingPage() {
   const openGoogleAuth = () => {
     const token = localStorage.getItem("token");
     if (!token) return;
-    const backendUrl = "https://ai-brain-backened-production.up.railway.app";
     const popup = window.open(
-      `${backendUrl}/sheets/connect?token=${encodeURIComponent(token)}`,
+      `/api/proxy/sheets/connect?token=${encodeURIComponent(token)}`,
       "google_auth",
       "width=520,height=620,scrollbars=yes,resizable=yes"
     );

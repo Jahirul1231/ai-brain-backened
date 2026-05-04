@@ -33,7 +33,7 @@ export default function ClientSettingsPage() {
   const openGoogleAuth = () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") || "" : "";
     const popup = window.open(
-      `https://ai-brain-backened-production.up.railway.app/sheets/connect?token=${encodeURIComponent(token)}`,
+      `/api/proxy/sheets/connect?token=${encodeURIComponent(token)}`,
       "google_auth",
       "width=520,height=620,scrollbars=yes,resizable=yes"
     );

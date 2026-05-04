@@ -10,17 +10,27 @@ async function handler(req, { params }) {
   const auth = req.headers.get("authorization");
   if (auth) headers["Authorization"] = auth;
 
-  const init = { method: req.method, headers };
+  const init = { method: req.method, headers, redirect: "manual" };
   if (req.method !== "GET" && req.method !== "HEAD") {
     init.body = await req.text();
   }
 
   const res = await fetch(`${url}${qs}`, init);
+
+  // Pass redirects through to the browser (needed for OAuth flow)
+  if ([301, 302, 307, 308].includes(res.status)) {
+    return new Response(null, {
+      status: res.status,
+      headers: { Location: res.headers.get("Location") || "/" },
+    });
+  }
+
+  const contentType = res.headers.get("Content-Type") || "application/json";
   const data = await res.text();
 
   return new Response(data, {
     status: res.status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": contentType },
   });
 }
 
