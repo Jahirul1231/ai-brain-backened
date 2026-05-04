@@ -324,6 +324,13 @@ const TOOL_HANDLERS = {
 /* ── Main COO agent runner ───────────────────────────────────── */
 
 export const runCOOAgent = async (message, history = []) => {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return {
+      response: "AI features are not yet active. The Anthropic API key has not been configured. Everything else is ready — once the key is added, I'll be fully live.",
+      agentsConsulted: [],
+    };
+  }
+
   const claude = getClaude();
 
   const messages = [
@@ -346,7 +353,7 @@ export const runCOOAgent = async (message, history = []) => {
     const res = await claude.messages.create({
       model: CLAUDE_MODEL,
       max_tokens: 2048,
-      system: SYSTEM_PROMPT,
+      system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
       tools: AGENT_TOOLS,
       messages: currentMessages,
     });

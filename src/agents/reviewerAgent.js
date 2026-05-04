@@ -14,6 +14,10 @@ export const runReviewerAgent = async ({ userMessage, plannerResponse, toolResul
     return "I wasn't able to retrieve any data. Please check the spreadsheet ID and try again.";
   }
 
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return plannerResponse;
+  }
+
   const claude = getClaude();
 
   const content = `User asked: ${userMessage}
@@ -28,7 +32,6 @@ Please produce the final clean response for the user.`;
   const response = await claude.messages.create({
     model: CLAUDE_MODEL,
     max_tokens: 1024,
-    thinking: { type: "adaptive" },
     system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content }],
   });

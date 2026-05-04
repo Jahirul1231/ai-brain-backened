@@ -132,8 +132,8 @@ export const runPlannerAgent = async ({ message, spreadsheetId, tenantId }) => {
   for (let i = 0; i < 5; i++) {
     const response = await claude.messages.create({
       model: CLAUDE_MODEL,
-      max_tokens: 4096,
-      thinking: { type: "adaptive" },
+      max_tokens: 8000,
+      thinking: { type: "enabled", budget_tokens: 5000 },
       system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
       tools: TOOLS,
       messages,
