@@ -1,4 +1,6 @@
 import { getClaude, CLAUDE_MODEL } from "../lib/claude.js";
+import { getGroq, GROQ_MODEL } from "../lib/groq.js";
+import { env } from "../config/env.js";
 
 const SYSTEM_PROMPT = `You are a senior data analyst presenting findings to a business executive. Your job is to turn raw analysis into a clean, professional response.
 
@@ -17,11 +19,12 @@ export const runReviewerAgent = async ({ userMessage, plannerResponse, toolResul
     return "I wasn't able to retrieve any data. Please check that your Google Sheet is connected and try again.";
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const useGroq = !env.claude.apiKey && env.groq.apiKey;
+  const useClaude = !!env.claude.apiKey;
+
+  if (!useClaude && !useGroq) {
     return plannerResponse || "";
   }
-
-  const claude = getClaude();
 
   const toolSummary =
     toolResults.length > 0
@@ -35,7 +38,7 @@ export const runReviewerAgent = async ({ userMessage, plannerResponse, toolResul
           .join("\n\n")
       : "(no tool calls)";
 
-  const content = `User asked: ${userMessage}
+  const userContent = `User asked: ${userMessage}
 
 Analyst's response: ${plannerResponse}
 
@@ -44,13 +47,27 @@ ${toolSummary}
 
 Produce the final clean response for the user. Format it professionally with tables or bullets where appropriate.`;
 
-  const response = await claude.messages.create({
-    model: CLAUDE_MODEL,
-    max_tokens: 2048,
-    system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-    messages: [{ role: "user", content }],
-  });
+  if (useClaude) {
+    const claude = getClaude();
+    const response = await claude.messages.create({
+      model: CLAUDE_MODEL,
+      max_tokens: 2048,
+      system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+      messages: [{ role: "user", content: userContent }],
+    });
+    const textBlock = response.content.find((b) => b.type === "text");
+    return textBlock?.text || plannerResponse || "";
+  }
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  return textBlock?.text || plannerResponse || "";
+  // Groq fallback
+  const groq = getGroq();
+  const response = await groq.chat.completions.create({
+    model: GROQ_MODEL,
+    max_tokens: 2048,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: userContent },
+    ],
+  });
+  return response.choices[0]?.message?.content || plannerResponse || "";
 };

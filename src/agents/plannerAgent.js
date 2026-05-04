@@ -1,4 +1,6 @@
 import { getClaude } from "../lib/claude.js";
+import { getGroq, GROQ_MODEL } from "../lib/groq.js";
+import { env } from "../config/env.js";
 import {
   readSheet,
   writeSheet,
@@ -9,7 +11,7 @@ import {
   getSpreadsheetInfo,
 } from "../services/sheetsService.js";
 
-const PLANNER_MODEL = "claude-opus-4-7";
+const CLAUDE_MODEL = "claude-opus-4-7";
 const MAX_ITERATIONS = 15;
 
 const buildSystemPrompt = (availableSheets) => {
@@ -49,11 +51,11 @@ When creating a dashboard or summary sheet, structure it like a real analyst wou
 - Handle plain English naturally — "show me revenue by month" means read the data and summarize it`;
 };
 
-const TOOLS = [
+// Claude-format tools (input_schema)
+const CLAUDE_TOOLS = [
   {
     name: "get_spreadsheet_info",
-    description:
-      "Get the spreadsheet title and list all sheet tabs with their dimensions. Use this first to understand the structure before reading data.",
+    description: "Get the spreadsheet title and list all sheet tabs with their dimensions. Use this first to understand the structure before reading data.",
     input_schema: {
       type: "object",
       properties: {
@@ -75,60 +77,45 @@ const TOOLS = [
   },
   {
     name: "read_sheet",
-    description:
-      "Read data from a specific range in a sheet. Use A1 notation like 'Sheet1!A1:F50' or 'Sales!A:Z' for all columns in a tab. Always include the sheet tab name in the range.",
+    description: "Read data from a specific range in a sheet. Use A1 notation like 'Sheet1!A1:F50' or 'Sales!A:Z' for all columns. Always include the sheet tab name.",
     input_schema: {
       type: "object",
       properties: {
         spreadsheetId: { type: "string", description: "The Google Spreadsheet ID" },
-        range: {
-          type: "string",
-          description: "Range in A1 notation with tab name, e.g. 'Sheet1!A1:E100' or 'Inventory!A:F'",
-        },
+        range: { type: "string", description: "Range in A1 notation with tab name, e.g. 'Sheet1!A1:E100'" },
       },
       required: ["spreadsheetId", "range"],
     },
   },
   {
     name: "write_sheet",
-    description:
-      "Write data to a range, overwriting existing content. Use only when the user explicitly asks to write or set data.",
+    description: "Write data to a range, overwriting existing content. Use only when user explicitly asks to write or set data.",
     input_schema: {
       type: "object",
       properties: {
         spreadsheetId: { type: "string", description: "The Google Spreadsheet ID" },
         range: { type: "string", description: "Range in A1 notation, e.g. 'Dashboard!A1:D20'" },
-        values: {
-          type: "array",
-          items: { type: "array" },
-          description: "2D array of values to write (outer array = rows, inner array = columns)",
-        },
+        values: { type: "array", items: { type: "array" }, description: "2D array of values to write (rows × columns)" },
       },
       required: ["spreadsheetId", "range", "values"],
     },
   },
   {
     name: "append_to_sheet",
-    description:
-      "Append new rows to the end of a sheet. Use only when the user asks to add or append data.",
+    description: "Append new rows to the end of a sheet. Use only when the user asks to add or append data.",
     input_schema: {
       type: "object",
       properties: {
         spreadsheetId: { type: "string", description: "The Google Spreadsheet ID" },
         range: { type: "string", description: "Sheet range to append after, e.g. 'Sheet1!A:Z'" },
-        values: {
-          type: "array",
-          items: { type: "array" },
-          description: "2D array of rows to append",
-        },
+        values: { type: "array", items: { type: "array" }, description: "2D array of rows to append" },
       },
       required: ["spreadsheetId", "range", "values"],
     },
   },
   {
     name: "update_range",
-    description:
-      "Update specific cells in a range with new values. Use only when user explicitly asks to update or edit specific data.",
+    description: "Update specific cells in a range. Use only when user explicitly asks to update or edit specific data.",
     input_schema: {
       type: "object",
       properties: {
@@ -141,8 +128,7 @@ const TOOLS = [
   },
   {
     name: "create_sheet",
-    description:
-      "Create a new sheet tab in a spreadsheet. Use this when creating a dashboard, summary, or output sheet.",
+    description: "Create a new sheet tab in a spreadsheet. Use this when creating a dashboard or summary sheet.",
     input_schema: {
       type: "object",
       properties: {
@@ -153,6 +139,16 @@ const TOOLS = [
     },
   },
 ];
+
+// Groq-format tools (parameters instead of input_schema)
+const GROQ_TOOLS = CLAUDE_TOOLS.map((t) => ({
+  type: "function",
+  function: {
+    name: t.name,
+    description: t.description,
+    parameters: t.input_schema,
+  },
+}));
 
 const executeTool = async (toolName, input, tenantId) => {
   switch (toolName) {
@@ -167,54 +163,20 @@ const executeTool = async (toolName, input, tenantId) => {
   }
 };
 
-export const runPlannerAgent = async ({
-  tenantId,
-  message,
-  spreadsheetId,
-  sheetIds = [],
-  spreadsheetMeta = [],
-}) => {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return {
-      response:
-        "AI features are not yet active. The Anthropic API key has not been configured. Everything else is ready — once the key is added, I'll be fully live.",
-      toolResults: [],
-      messages: [],
-    };
-  }
-
-  // Build the list of available sheets for context
-  let availableSheets = spreadsheetMeta.filter((s) => s?.id);
-
-  if (availableSheets.length === 0 && sheetIds.length > 0) {
-    availableSheets = sheetIds.map((id) => ({ id, name: id }));
-  } else if (availableSheets.length === 0 && spreadsheetId) {
-    availableSheets = [{ id: spreadsheetId, name: spreadsheetId }];
-  }
-
+// ─── Claude agentic loop ────────────────────────────────────────────────────
+const runWithClaude = async ({ systemPrompt, userContent, tenantId }) => {
   const claude = getClaude();
-  const systemPrompt = buildSystemPrompt(availableSheets);
-
-  // Attach spreadsheet context to the user message
-  let userContent = message;
-  if (availableSheets.length > 0) {
-    const ctx = availableSheets
-      .map((s) => `- "${s.name}" → spreadsheetId: ${s.id}`)
-      .join("\n");
-    userContent = `Connected spreadsheets:\n${ctx}\n\nUser request: ${message}`;
-  }
-
   const messages = [{ role: "user", content: userContent }];
   const toolResults = [];
   let finalResponse = "";
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     const response = await claude.messages.create({
-      model: PLANNER_MODEL,
+      model: CLAUDE_MODEL,
       max_tokens: 16000,
       thinking: { type: "adaptive" },
       system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
-      tools: TOOLS,
+      tools: CLAUDE_TOOLS,
       messages,
     });
 
@@ -234,19 +196,10 @@ export const runPlannerAgent = async ({
         try {
           const data = await executeTool(tool.name, tool.input, tenantId);
           toolResults.push({ tool: tool.name, input: tool.input, result: data });
-          results.push({
-            type: "tool_result",
-            tool_use_id: tool.id,
-            content: JSON.stringify(data),
-          });
+          results.push({ type: "tool_result", tool_use_id: tool.id, content: JSON.stringify(data) });
         } catch (err) {
           toolResults.push({ tool: tool.name, input: tool.input, error: err.message });
-          results.push({
-            type: "tool_result",
-            tool_use_id: tool.id,
-            content: `Error: ${err.message}`,
-            is_error: true,
-          });
+          results.push({ type: "tool_result", tool_use_id: tool.id, content: `Error: ${err.message}`, is_error: true });
         }
       }
 
@@ -254,5 +207,103 @@ export const runPlannerAgent = async ({
     }
   }
 
-  return { response: finalResponse, toolResults, messages };
+  return { response: finalResponse, toolResults };
+};
+
+// ─── Groq agentic loop ──────────────────────────────────────────────────────
+const runWithGroq = async ({ systemPrompt, userContent, tenantId }) => {
+  const groq = getGroq();
+  const messages = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userContent },
+  ];
+  const toolResults = [];
+  let finalResponse = "";
+
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    const response = await groq.chat.completions.create({
+      model: GROQ_MODEL,
+      max_tokens: 8000,
+      tools: GROQ_TOOLS,
+      tool_choice: "auto",
+      messages,
+    });
+
+    const choice = response.choices[0];
+    const assistantMsg = choice.message;
+    messages.push(assistantMsg);
+
+    if (choice.finish_reason === "stop" || !assistantMsg.tool_calls?.length) {
+      finalResponse = assistantMsg.content || "";
+      break;
+    }
+
+    if (choice.finish_reason === "tool_calls" || assistantMsg.tool_calls?.length) {
+      for (const toolCall of assistantMsg.tool_calls) {
+        const toolName = toolCall.function.name;
+        let input;
+        try {
+          input = JSON.parse(toolCall.function.arguments);
+          const data = await executeTool(toolName, input, tenantId);
+          toolResults.push({ tool: toolName, input, result: data });
+          messages.push({
+            role: "tool",
+            tool_call_id: toolCall.id,
+            content: JSON.stringify(data),
+          });
+        } catch (err) {
+          toolResults.push({ tool: toolName, input: input || {}, error: err.message });
+          messages.push({
+            role: "tool",
+            tool_call_id: toolCall.id,
+            content: `Error: ${err.message}`,
+          });
+        }
+      }
+    }
+  }
+
+  return { response: finalResponse, toolResults };
+};
+
+// ─── Main export ────────────────────────────────────────────────────────────
+export const runPlannerAgent = async ({
+  tenantId,
+  message,
+  spreadsheetId,
+  sheetIds = [],
+  spreadsheetMeta = [],
+}) => {
+  const useGroq = !env.claude.apiKey && env.groq.apiKey;
+  const useClaude = !!env.claude.apiKey;
+
+  if (!useClaude && !useGroq) {
+    return {
+      response:
+        "AI features are not yet active. Please add ANTHROPIC_API_KEY or GROQ_API_KEY in Railway environment variables.",
+      toolResults: [],
+      messages: [],
+    };
+  }
+
+  // Build the list of available sheets for context
+  let availableSheets = spreadsheetMeta.filter((s) => s?.id);
+  if (availableSheets.length === 0 && sheetIds.length > 0) {
+    availableSheets = sheetIds.map((id) => ({ id, name: id }));
+  } else if (availableSheets.length === 0 && spreadsheetId) {
+    availableSheets = [{ id: spreadsheetId, name: spreadsheetId }];
+  }
+
+  const systemPrompt = buildSystemPrompt(availableSheets);
+
+  let userContent = message;
+  if (availableSheets.length > 0) {
+    const ctx = availableSheets.map((s) => `- "${s.name}" → spreadsheetId: ${s.id}`).join("\n");
+    userContent = `Connected spreadsheets:\n${ctx}\n\nUser request: ${message}`;
+  }
+
+  const runner = useClaude ? runWithClaude : runWithGroq;
+  const { response, toolResults } = await runner({ systemPrompt, userContent, tenantId });
+
+  return { response, toolResults, messages: [] };
 };
