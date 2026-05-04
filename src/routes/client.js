@@ -341,25 +341,47 @@ clientRouter.post("/client/reports", chatLimiter, async (req, res, next) => {
     // Run AI agent asynchronously
     (async () => {
       try {
-        const { messages } = await runPlannerAgent(req.user.tenantId, prompt, primarySheetId);
-        const reviewed = await runReviewerAgent(messages, prompt);
+        // Fetch spreadsheet names for selected sheets
+        const allSheetIds = [...new Set([primarySheetId, ...sheetIds].filter(Boolean))];
+        let spreadsheetMeta = [];
+        if (allSheetIds.length > 0) {
+          const { data: conns } = await getSupabase()
+            .from("sheet_connections")
+            .select("spreadsheet_id, spreadsheet_name")
+            .eq("tenant_id", req.user.tenantId)
+            .in("spreadsheet_id", allSheetIds);
+          spreadsheetMeta = (conns || []).map((c) => ({ id: c.spreadsheet_id, name: c.spreadsheet_name || c.spreadsheet_id }));
+        }
+
+        const { response: plannerResponse, toolResults } = await runPlannerAgent({
+          tenantId: req.user.tenantId,
+          message: prompt,
+          spreadsheetId: primarySheetId,
+          sheetIds: allSheetIds,
+          spreadsheetMeta,
+        });
+        const reviewed = await runReviewerAgent({
+          userMessage: prompt,
+          plannerResponse,
+          toolResults,
+        });
 
         // Debit 2 tokens
         await getSupabase().rpc("debit_tokens", { p_tenant_id: req.user.tenantId, p_amount: 2, p_reason: "report_generated" });
 
         let sheetUrl = null;
-        if (format === "sheet" && reviewed.result?.includes("docs.google.com")) {
-          sheetUrl = reviewed.result.match(/https:\/\/docs\.google\.com\/[^\s"]+/)?.[0];
+        if (format === "sheet" && reviewed?.includes("docs.google.com")) {
+          sheetUrl = reviewed.match(/https:\/\/docs\.google\.com\/[^\s"]+/)?.[0];
         }
 
         await getSupabase()
           .from("client_reports")
-          .update({ status: "ready", result: reviewed.result, sheet_url: sheetUrl })
+          .update({ status: "ready", result: reviewed, sheet_url: sheetUrl })
           .eq("id", report.id);
 
         // Email delivery
-        if (deliverTo.length > 0 && reviewed.result) {
-          sendReportEmail({ to: deliverTo, reportTitle: title, reportContent: reviewed.result, format }).catch(() => {});
+        if (deliverTo.length > 0 && reviewed) {
+          sendReportEmail({ to: deliverTo, reportTitle: title, reportContent: reviewed, format }).catch(() => {});
         }
       } catch {
         await getSupabase()
@@ -517,8 +539,30 @@ clientRouter.post("/client/chat", chatLimiter, async (req, res, next) => {
       });
     }
 
-    const { messages, toolResults } = await runPlannerAgent(req.user.tenantId, message, spreadsheetId);
-    const reviewed = await runReviewerAgent(messages, message);
+    // Fetch spreadsheet names for selected sheets
+    const allSheetIds = [...new Set([spreadsheetId, ...sheetIds].filter(Boolean))];
+    let spreadsheetMeta = [];
+    if (allSheetIds.length > 0) {
+      const { data: conns } = await sb
+        .from("sheet_connections")
+        .select("spreadsheet_id, spreadsheet_name")
+        .eq("tenant_id", req.user.tenantId)
+        .in("spreadsheet_id", allSheetIds);
+      spreadsheetMeta = (conns || []).map((c) => ({ id: c.spreadsheet_id, name: c.spreadsheet_name || c.spreadsheet_id }));
+    }
+
+    const { response: plannerResponse, toolResults } = await runPlannerAgent({
+      tenantId: req.user.tenantId,
+      message,
+      spreadsheetId,
+      sheetIds: allSheetIds,
+      spreadsheetMeta,
+    });
+    const reviewed = await runReviewerAgent({
+      userMessage: message,
+      plannerResponse,
+      toolResults,
+    });
 
     // Debit 1 token
     await sb.rpc("debit_tokens", { p_tenant_id: req.user.tenantId, p_amount: 1, p_reason: "client_chat" });
@@ -534,11 +578,11 @@ clientRouter.post("/client/chat", chatLimiter, async (req, res, next) => {
       tenant_id: req.user.tenantId,
       user_id: req.user.id,
       role: "assistant",
-      content: reviewed.result || "",
+      content: reviewed || "",
     });
 
     const { data: newBal } = await sb.from("token_balances").select("balance").eq("tenant_id", req.user.tenantId).single();
-    res.json({ response: reviewed.result, toolResults, tokensRemaining: newBal?.balance ?? 0 });
+    res.json({ response: reviewed, toolResults, tokensRemaining: newBal?.balance ?? 0 });
   } catch (err) {
     next(err);
   }
