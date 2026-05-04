@@ -303,7 +303,26 @@ export const runPlannerAgent = async ({
   }
 
   const runner = useClaude ? runWithClaude : runWithGroq;
-  const { response, toolResults } = await runner({ systemPrompt, userContent, tenantId });
-
-  return { response, toolResults, messages: [] };
+  try {
+    const { response, toolResults } = await runner({ systemPrompt, userContent, tenantId });
+    return { response, toolResults, messages: [] };
+  } catch (err) {
+    // Surface a helpful error message instead of a raw 500
+    const msg = err?.message || "";
+    if (msg.includes("401") || msg.includes("invalid_api_key") || msg.includes("Authentication")) {
+      return {
+        response: "AI error: The API key is invalid or has been revoked. Please update GROQ_API_KEY or ANTHROPIC_API_KEY in your Railway environment variables.",
+        toolResults: [],
+        messages: [],
+      };
+    }
+    if (msg.includes("429") || msg.includes("rate_limit")) {
+      return {
+        response: "AI error: Rate limit reached. Please wait a moment and try again.",
+        toolResults: [],
+        messages: [],
+      };
+    }
+    throw err;
+  }
 };
